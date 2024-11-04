@@ -55,18 +55,4 @@ contacts = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text='приемная комиссия', callback_data='прием.комиссия')]
 ])
 
-reg_groups = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='б241иб'), KeyboardButton(text='б242иб')], 
-    [KeyboardButton(text='б243иб'), KeyboardButton(text='б244иб'), KeyboardButton(text='б245иб')]
-],
-    resize_keyboard=True)
 
-choice = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='yessss', callback_data='yes')],
-    [InlineKeyboardButton(text='nnnoooo', callback_data='no')]
-])
-
-skip = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='нет, скип')]
-],
-    resize_keyboard=True)

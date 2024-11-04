@@ -3,91 +3,20 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
-import app.database.requests as rq
 
 import app.keyboards as kb
 
 class Register(StatesGroup):
-    group = State()
-    status = State() # посмотри, что такое классы
-    password = State()
+    name = State()
+    surname = State() # посмотри, что такое классы
 
 router = Router()
-с = 0
 
 @router.message(CommandStart())
 async def cmd_start(message: Message):
-    await message.answer('иу, тебе тоже про меня рассказали...\nменя зовут... а, впрочем, неважно.\nчто надо?.', reply_markup=kb.parents)
-    if await rq.set_user_id(message.from_user.id) == False:
-        await message.answer('продолжим с регистрацией?', reply_markup=kb.choice)
-    else:
-        await message.answer('ты можешь получить доступ к личной инфе')
+    await message.answer('иу, тебе тоже про меня рассказали...\nменя зовут... а, впрочем, неважно.\nчто надо? не задерживай меня',
+                         reply_markup=kb.main)
 
-@router.callback_query(F.data == 'yes')
-async def register(callback: CallbackQuery):
-    await callback.message.answer('еее, давай зарегаемся!')
-    await callback.state.set_state(Register.group)
-    await callback.message.answer('choose your бибика', reply_markup=kb.groups)
-
-@router.message(Register.group)
-async def register_group(message: Message, state: FSMContext):
-    await state.update_data(group = message.text)
-    await state.set_state(Register.password)
-    await message.answer('окей. введи пароль, если ты (зам)староста', reply_markup=kb.skip)
-
-@router.message(Register.password)
-async def check_password(message: Message, state: FSMContext):
-    global c
-    data_interim_group = await state.get_data()
-    if message.text == 'нет, скип':
-        await state.update_data(password = message.text)
-        await state.set_state(Register.status)
-    else:
-        check = await rq.check_password(data_interim_group['group'], message.text)
-        if check:
-           await state.update_data(password=message.text)
-           await state.set_state(Register.status)
-           await message.answer('верю')
-        elif not check and c<3:
-           c+=1
-           await state.update_data(password=message.text)
-           await state.set_state(Register.password)
-           await message.answer(f'неправильно. еще {3-c} попытки')
-        elif c==3:
-            await state.set_state(Register.status)
-            await message.answer('не верю')
-            await message.answer('нажми, чтобы продолжить',
-                        reply_markup=kb.continue_)
-        if check:
-           await state.update_data(password=message.text)
-           await state.set_state(Register.status)
-           await message.answer('верю')
-        elif not check and c<3:
-           c+=1
-           await state.update_data(password=message.text)
-           await state.set_state(Register.password)
-           await message.answer(f'неправильно. еще {3-c} попытки')
-        elif c==3:
-            await state.set_state(Register.status)
-            await message.answer('не верю')
-            await message.answer('нажми, чтобы продолжить',
-                        reply_markup=kb.continue_)
-
-@router.message(Register.status)
-async def reg_st(message: Message, state: FSMContext):
-    data_interim_group=await state.get_data()
-    check=await rq.check_password(data_interim_group['group'],data_interim_group['password'])
-    if not(check):
-        await state.update_data(status=False)
-    else:
-        await state.update_data(status=True)
-    data_reg=await state.get_data()
-    await rq.set_user(data_reg['group'], message.from_user.id, data_reg['status'])
-    await message.answer('поехалииииии')
-
-@router.callback_query(F.data == 'no')
-async def yes(callback: CallbackQuery):
-    await callback.message.answer('ну ок', reply_markup=kb.main)
 
 @router.message(Command('help'))
 async def cmd_help(message: Message):
@@ -166,28 +95,25 @@ async def group241(callback: CallbackQuery):
 
 
 
-'''@router.message(Command('register'))'''
-'''async def register(message: Message, state: FSMContext):'''
-'''    await state.set_state(Register.name)'''
-'''    await message.answer('кто ты есть?')'''
+@router.message(Command('register'))
+async def register(message: Message, state: FSMContext):
+    await state.set_state(Register.name)
+    await message.answer('кто ты есть?')
 
-'''@router.message(Register.name)'''
-'''async def register_name(message: Message, state: FSMContext):'''
-'''    await state.update_data(name=message.text)'''
-'''    await state.set_state(Register.surname)'''
-'''    await message.answer('а по фамилии?')'''
+@router.message(Register.name)
+async def register_name(message: Message, state: FSMContext):
+    await state.update_data(name=message.text)
+    await state.set_state(Register.surname)
+    await message.answer('а по фамилии?')
 
-'''@router.message(Register.surname)'''
-'''async def register_surname(message: Message, state: FSMContext):'''
-'''    await state.update_data(surname=message.text)'''
-'''    data = await state.get_data()'''
-'''    await message.answer(f'перепроверь машину\nимя: {data["name"]}\nфамилия: {data["surname"]}')'''
+@router.message(Register.surname)
+async def register_surname(message: Message, state: FSMContext):
+    await state.update_data(surname=message.text)
+    data = await state.get_data()
+    await message.answer(f'перепроверь машину\nимя: {data["name"]}\nфамилия: {data["surname"]}')
 ### команда вверху вынимает значения
-'''    await state.clear()'''
+    await state.clear()
 ### команда сверху чистит записанные данные, чтобы бот не засорялся
-
-
-
 
 
 # пример команды, чтобы запросить номер телефона
