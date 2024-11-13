@@ -23,6 +23,16 @@ class Password(Base):
     number_gr: Mapped[str] = mapped_column(String(6))
     password: Mapped[str] = mapped_column(String(50))
 
+class schedule(Base):
+    __tablename__ = 'schedules'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    monday: Mapped[str] = mapped_column(String(5000))
+    tuesday: Mapped[str] = mapped_column(String(5000))
+    wednesday: Mapped[str] = mapped_column(String(5000))
+    thursday: Mapped[str] = mapped_column(String(5000))
+    friday: Mapped[str] = mapped_column(String(5000))
+    saturday: Mapped[str] = mapped_column(String(5000))
+    group: Mapped[str] = mapped_column(ForeignKey('users.number_gr'))
 
     '''category: Mapped[int] = mapped_column(ForeignKey('categories.id'))'''
 
