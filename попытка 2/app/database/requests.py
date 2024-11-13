@@ -10,11 +10,11 @@ async def set_user_id(tg_id: int):
         else:
             return True
         
-async def set_user(group: str, tg_id: int, status: bool):
+async def set_user(name: str, tg_id: int, group: str, status: bool):
     async with async_session() as session:
-        session.add(User(tg_id=tg_id,number_gr=group,status=status))
+        session.add(User(name_user=name,tg_id=tg_id,number_gr=group,status=status))
         await session.commit()
-        
+
 async def check_password(group: str, password: str):
     async with async_session() as session:
         user = await session.scalar(select(Password).where(Password.number_gr==group).where(Password.password==password))

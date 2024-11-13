@@ -7,13 +7,18 @@ import app.database.requests as rq
 
 import app.keyboards as kb
 
-class Register(StatesGroup):
+from app.middlewares import TestMiddleware
+
+class Reg(StatesGroup):
     group = State()
     status = State() # посмотри, что такое классы
     password = State()
+    name = State()
 
 router = Router()
 c = 0
+
+router.message.outer_middleware(TestMiddleware())
 
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
@@ -25,63 +30,65 @@ async def cmd_start(message: Message, state: FSMContext):
     await message.answer('иу, тебе тоже про меня рассказали...\nменя зовут... а, впрочем, неважно.')
     if await rq.set_user_id(message.from_user.id) == False:
         await message.answer('мне нужно узнать, кто ты. зарегистрируйся, для начала')
-        await state.set_state(Register.group)
+        await state.set_state(Reg.group)
         await message.answer('выбери свою бибику (группу)',
                          reply_markup=kb.reg_groups)
     else:
         await message.answer('что надо?')
 
-@router.message(Register.group)
-async def register_group(message: Message, state: FSMContext):
-    await state.update_data(group = message.text)
-    await state.set_state(Register.password)
-    await message.answer('окей. введи пароль, если ты (зам)староста', reply_markup=kb.skip)
 
-@router.message(Register.password)
+@router.message(Reg.group)
+async def reg_gr(message: Message, state: FSMContext):
+    await state.update_data(group=message.text)
+    await state.set_state(Reg.password)
+    await message.answer('окей, если ты (зам)староста, введи пароль',
+                         reply_markup=kb.skip)
+
+
+
+@router.message(Reg.password)
 async def check_password(message: Message, state: FSMContext):
     global c
-    data_interim_group = await state.get_data()
-    if message.text == 'нет, скип':
-        await state.update_data(password = message.text)
-        await state.set_state(Register.status)
+    data_intrm_group = await state.get_data()
+    if message.text == 'скип':
+        await state.update_data(password=message.text)
+        await state.set_state(Reg.status)
     else:
-        check = await rq.check_password(data_interim_group['group'], message.text)
+        check = await rq.check_password(data_intrm_group['group'], message.text)
         if check:
-           await state.update_data(password=message.text)
-           await state.set_state(Register.status)
-           await message.answer('верю')
-        elif not check and c<3:
-           c+=1
-           await state.update_data(password=message.text)
-           await state.set_state(Register.password)
-           await message.answer(f'неправильно. еще {3-c} попытки')
-        elif c==3:
-            await state.set_state(Register.status)
+            await state.update_data(password=message.text)
+            await state.set_state(Reg.status)
+            await message.answer('верю')
+        elif not check and c < 3:
+            c += 1
+            await state.update_data(password=message.text)
+            await state.set_state(Reg.password)
+            await message.answer(f'пароль не такой!. еще {3-c} попытки/а')
+        elif c == 3:
+            await state.set_state(Reg.status)
             await message.answer('не верю')
-            await message.answer('нажми, чтобы продолжить',
-                        reply_markup=kb.continue_)
+    await message.answer('давай знакомиться. введи свои имя и фамилию')
 
-@router.message(Register.status)
+@router.message(Reg.status)
 async def reg_st(message: Message, state: FSMContext):
-    data_interim_group=await state.get_data()
-    check=await rq.check_password(data_interim_group['group'],data_interim_group['password'])
-    if not(check):
+    data_intrm_group = await state.get_data()
+    check = await rq.check_password(data_intrm_group['group'], data_intrm_group['password'])
+    if not check:
         await state.update_data(status=False)
     else:
         await state.update_data(status=True)
-    data_reg=await state.get_data()
-    await rq.set_user(data_reg['group'], message.from_user.id, data_reg['status'])
-    await message.answer('поехалииииии')
-
-@router.callback_query(F.data == 'no')
-async def yes(callback: CallbackQuery):
-    await callback.message.answer('ну ок', reply_markup=kb.main)
+    await state.set_state(Reg.name)
+    await state.update_data(name = message.text)
+    data_reg = await state.get_data()
+    await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'], data_reg['status'])
+    await state.clear()
+    await message.answer('вроде зарегистрировались.\nчто надо?',
+                         reply_markup = kb.main)
 
 
 @router.message(Command('help'))
 async def cmd_help(message: Message):
     await message.answer('S O S please some-one-help-me')
-
 @router.message(F.text == 'твои сокамерники. или не твои')
 async def groups(message: Message):
     await message.answer('choose your бибика', reply_markup=kb.groups)

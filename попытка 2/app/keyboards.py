@@ -68,6 +68,10 @@ choice = InlineKeyboardMarkup(inline_keyboard=[
 ])
 
 skip = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='нет, скип')]
+    [KeyboardButton(text='скип')]
 ],
     resize_keyboard=True)
+
+continue_= ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text = 'продолжить')]
+], resize_keyboard=True)

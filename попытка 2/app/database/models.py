@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncAttrs, async_sessionmaker, create_async_
 
 engine = create_async_engine(url = 'mysql+aiomysql://root:Kk4866336@localhost:3306/bot')
 
-async_session = async_sessionmaker(engine)
+async_session = async_sessionmaker(engine) # подключение к БД
 
 class Base(AsyncAttrs, DeclarativeBase): 
     pass
@@ -12,6 +12,7 @@ class Base(AsyncAttrs, DeclarativeBase):
 class User(Base):
     __tablename__ = 'users'
     id: Mapped[int] = mapped_column(primary_key=True)
+    name_user: Mapped[str] = mapped_column(String(35))
     tg_id = mapped_column(BigInteger)
     number_gr: Mapped[str] = mapped_column(String(10))
     status: Mapped[bool] = mapped_column()
@@ -21,6 +22,7 @@ class Password(Base):
     id: Mapped[int] = mapped_column(primary_key = True)
     number_gr: Mapped[str] = mapped_column(String(6))
     password: Mapped[str] = mapped_column(String(50))
+
 
     '''category: Mapped[int] = mapped_column(ForeignKey('categories.id'))'''
 
