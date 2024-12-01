@@ -9,6 +9,7 @@ from aiogram.fsm.context import FSMContext
 import app.database.requests as rq
 import app.keyboards as kb
 from app.middlewares import HandlerMiddleware
+from app.sup_func import check_data
 
 
 ### Этапы регистрации
@@ -17,6 +18,22 @@ class Reg(StatesGroup):
     status = State()
     password = State()
     name = State()
+
+class Absent(StatesGroup):
+    back_home = State()
+    name_subject = State()
+    name_user = State()
+
+class Subjects(StatesGroup):
+    subject = State()
+    subject_skip = State()
+
+
+### иные классы
+class Deadline(StatesGroup):
+    name_deadline = State()
+    day_deadline = State()
+    time_deadline = State()
 
 
 ### Подключение роутеров
@@ -28,7 +45,8 @@ router.message.outer_middleware(HandlerMiddleware())
 
 
 ### Ввод переменных
-c = 0
+itr_password = 0
+tab = ' '*8
 
 
 ### стартовая команда
@@ -56,32 +74,34 @@ async def reg_gr(message: Message, state: FSMContext):
 
 @router.message(Reg.password)
 async def check_password(message: Message, state: FSMContext):
-    global c
-    data_intrm_group = await state.get_data()
+    global itr_password
+    intermediate_data = await state.get_data()
     if message.text == 'скип':
         await state.update_data(password=message.text)
         await state.set_state(Reg.status)
+        await message.answer('Давай знакомиться. Введи свои имя и фамилию')
     else:
-        check = await rq.check_password(data_intrm_group['group'], message.text)
+        check = await rq.check_password(intermediate_data['group'], message.text)
         if check:
             await state.update_data(password=message.text)
             await state.set_state(Reg.status)
             await message.answer('Верю')
-        elif not check and c < 3:
-            c += 1
+            await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+        elif not check and itr_password < 3:
+            itr_password += 1
             await state.update_data(password=message.text)
             await state.set_state(Reg.password)
-            await message.answer(f'Пароль не такой!. Еще {3-c} попытки/а')
-        elif c == 3:
+            await message.answer(f'Пароль не такой!. Еще {3-itr_password} попытки/а')
+        elif itr_password == 3:
             await state.set_state(Reg.status)
             await message.answer('Не верю')
-    await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+            await message.answer('Давай знакомиться. Введи свои имя и фамилию')
 
 
 @router.message(Reg.status)
 async def reg_st(message: Message, state: FSMContext):
-    data_intrm_group = await state.get_data()
-    check = await rq.check_password(data_intrm_group['group'], data_intrm_group['password'])
+    intermediate_data = await state.get_data()
+    check = await rq.check_password(intermediate_data['group'], intermediate_data['password'])
     if not check:
         await state.update_data(status=False)
     else:
@@ -154,7 +174,7 @@ async def contacts_cmd(message: Message):
 ### Назад
 @router.message(F.text == 'Назад')
 async def back_cmd(message: Message):
-    await message.answer('Ну и пожалуйста', reply_markup=kb.main)
+    await message.answer('Ну и пожалуйста', reply_markup= await kb.main(message.from_user.id))
 
 
 ### Контакты (конкретно)
@@ -183,6 +203,128 @@ async def contact6(callback: CallbackQuery):
     await callback.message.answer('приемная комиссия\nТелефон: (495) 771-32-42; (495) 916-88-44')
 
 
+
+
+
+
+@router.message(Absent.back_home)
+@router.message(F.text == 'Отметить посещение')
+async def pick_subject(message: Message, state: FSMContext):
+    await message.answer('Выбери предмет',
+                         reply_markup=await kb.subjects())
+    await state.set_state(Absent.name_subject)
+
+
+@router.message(Absent.name_subject)
+async def pick_subject2(message: Message, state: FSMContext):
+    if message.text == 'Добавить предмет':
+        await state.clear()
+        await state.set_state(Subjects.subject)
+        await message.answer('Напиши название предмета, если хочешь добавить несколько, вводи в разных сообщения',
+                             reply_markup=kb.add_subjects)
+    else:
+        await state.update_data(name_subject=message.text)
+        await message.answer('Выбери студентов',
+                             reply_markup=await kb.students(message.from_user.id))
+        await state.set_state(Absent.name_user)
+
+
+@router.message(Absent.name_user)
+async def mark_absent(message: Message, state: FSMContext):
+    if message.text == 'ВСЁ!':
+        await state.clear()
+        await message.answer('Чем могу помочь?',
+                             reply_markup=await kb.main(message.from_user.id))
+    else:
+        number_group = await rq.get_group(message.from_user.id)
+        if not await rq.check_student(message.text, *number_group):
+            await message.answer('Ошибка, студент не найден.')
+        else:
+            await state.update_data(name_user=message.text)
+            data_mark = await state.get_data()
+            await rq.set_absent(name_user=data_mark['name_user'], number_group=number_group[0],
+                                name_object=data_mark['name_subject'])
+        await state.set_state(Absent.name_user)
+
+
+@router.message(Subjects.subject)
+async def add_subject(message: Message, state: FSMContext):
+    if message.text == 'Всё!':
+        await message.answer('Выбери предмет',
+                             reply_markup=await kb.subjects())
+        await state.clear()
+        await state.set_state(Absent.back_home)
+    elif not await rq.add_subject(message.text):
+        await message.answer('Ошибка, предмет уже существует!')
+        await state.set_state(Subjects.subject)
+
+
+@router.message(F.text == 'Пропуски')
+async def pick_subject_skip(message: Message, state: FSMContext):
+    await message.answer('Выберите предмет',
+                         reply_markup=await kb.subjects())
+    await state.set_state(Subjects.subject_skip)
+
+
+@router.message(Subjects.subject_skip)
+async def print_table_skips(message: Message):
+    sorted_absents_list = await rq.get_absents(message.from_user.id)
+    ending_str = f'Пропуски предмета {message.text}\n'
+    for absent in sorted_absents_list:
+        cnt_gap = await rq.get_cnt_gap(absent)
+        ending_str += f'{absent} - {cnt_gap} пропуска\n'
+    await message.answer(ending_str)
+
+
+
+@router.message(F.text == 'Просмотреть дедлайны')
+async def begin_deadlines(message: Message):
+    global tab
+    deadlines = await rq.get_deadlines(message.from_user.id)
+    sorted_deadlines_list = []
+    b_message = 'Дедлайн:'+tab*2+'Срок:\n'
+    for deadline in deadlines:
+        sorted_deadlines_list.append(deadline)
+    sorted_deadlines_list = sorted(sorted_deadlines_list)
+    for deadline in sorted_deadlines_list:
+        b_message += f'{deadline.name_deadline}'+tab+f'{deadline.day_deadline} {deadline.time_deadline}\n'
+        print(b_message)
+    await message.answer(b_message,
+                         reply_markup=await kb.main(message.from_user.id))
+
+
+@router.message(F.text == 'Назначить/редактировать дедлайн')
+async def add_deadlines(message: Message, state: FSMContext):
+    await state.set_state(Deadline.name_deadline)
+    await message.answer('Давай начнем с названия дедлайна')
+
+
+@router.message(Deadline.name_deadline)
+async def dl_nm(message: Message, state: FSMContext):
+    await state.update_data(name_deadline=message.text)
+    await state.set_state(Deadline.day_deadline)
+    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год(два последних числа) час:минуты')
+
+
+@router.message(Deadline.day_deadline)
+async def dl_d(message: Message, state: FSMContext):
+    day = message.text
+    if not check_data(day):
+        await message.answer('Ошибка! Неверный формат или время дедлайна уже истекло')
+        await message.answer('Введите дату дедлайна в формате день.месяц.год')
+        await state.set_state(Deadline.day_deadline)
+    else:
+        day_list = day.split(' ')
+        await state.update_data(day_deadline=day_list[0])
+        await state.update_data(time_deadline=day_list[1])
+        data_deadline = await state.get_data()
+        number_gr = await rq.get_group(message.from_user.id)
+        await rq.set_deadline(name_deadline=data_deadline['name_deadline'], number_gr=number_gr,
+                              day_deadline=data_deadline['day_deadline'], time_deadline=data_deadline['time_deadline'])
+        await state.clear()
+        await message.answer('Дедлайн добавлен!')
+        await message.answer('Чем могу помочь?',
+                             reply_markup=await kb.main(message.from_user.id))
 
 '''@router.callback_query(F.data == '241')'''
 '''async def group241(callback: CallbackQuery):'''

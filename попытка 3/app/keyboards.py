@@ -1,15 +1,18 @@
 ### Импорты
 from aiogram.types import (KeyboardButton, ReplyKeyboardMarkup, 
                            InlineKeyboardMarkup, InlineKeyboardButton)
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from app.database.requests import check_status, get_subjects, get_users
 
 
 ### Стартовая клавиатура
-main = ReplyKeyboardMarkup(keyboard=([
-    [KeyboardButton(text='Учебное'), 
-     KeyboardButton(text='Внеучебное')], 
-    [KeyboardButton(text = 'Редактирование данных')]]),
-                            resize_keyboard=True,
-                            input_field_placeholder='выбери, что тебе нужно')
+async def main(tg_id):
+    keyboard = ReplyKeyboardBuilder()
+    keyboard.add(KeyboardButton(text='Учебное'))
+    keyboard.add(KeyboardButton(text='Внеучебное'))
+    if await check_status(tg_id):
+        keyboard.add(KeyboardButton(text='Редактирование данных'))
+    return keyboard.adjust(1).as_markup()
 
 
 ### Редактирование данных
@@ -17,7 +20,7 @@ master_settings = ReplyKeyboardMarkup(keyboard = [
     [KeyboardButton(text = 'Редактировать расписание'), 
      KeyboardButton(text = 'Изменить список группы')], 
     [KeyboardButton(text = 'Отметить посещение'), 
-     KeyboardButton(text = 'Назначить/редактироваYfpyfxть дедлайн')],
+     KeyboardButton(text = 'Назначить/редактировать дедлайн')],
     [KeyboardButton(text = 'Назад')]
 ], resize_keyboard = True, input_field_placeholder = 'Только для старост')
 
@@ -132,4 +135,34 @@ skip = ReplyKeyboardMarkup(keyboard=[
 ### Продоложить
 continue_= ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text = 'продолжить')]
+], resize_keyboard=True)
+
+
+async def students(tg_id):
+    keyboard = ReplyKeyboardBuilder()
+    all_name = await get_users(tg_id)
+    keyboard.add(KeyboardButton(text='ВСЁ!'))
+    names_list = []
+    for name in all_name:
+        names_list.append(name.name_user)
+    sorted_name_list = sorted(names_list)
+    for name in sorted_name_list:
+        keyboard.add(KeyboardButton(text=name))
+    return keyboard.adjust(3).as_markup()
+
+
+async def subjects():
+    keyboard = ReplyKeyboardBuilder()
+    all_subjects = await get_subjects()
+    subjects_list = []
+    for subject in all_subjects:
+        subjects_list.append(subject.name_object)
+    sorted_subject_list = sorted(subjects_list)
+    for subject in sorted_subject_list:
+        keyboard.add(KeyboardButton(text=subject))
+    keyboard.add(KeyboardButton(text='Добавить предмет'))
+    return keyboard.adjust(2).as_markup()
+
+add_subjects = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text='Всё!')]
 ], resize_keyboard=True)

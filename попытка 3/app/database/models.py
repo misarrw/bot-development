@@ -34,6 +34,28 @@ class Schedule(Base):
     friday: Mapped[str] = mapped_column(String(1000))
     saturday: Mapped[str] = mapped_column(String(1000))
 
+class Absent(Base):
+    __tablename__ = 'absents'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name_user: Mapped[str] = mapped_column(String(35))
+    number_gr: Mapped[str] = mapped_column(String(6))
+    name_object: Mapped[str] = mapped_column(String(120))
+    cnt_gap: Mapped[int] = mapped_column()
+
+class Object(Base):
+    __tablename__ = 'objects'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name_object: Mapped[str] = mapped_column(String(120))
+
+
+class Deadline(Base):
+    __tablename__ = 'deadlines'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name_deadline: Mapped[str] = mapped_column(String(120))
+    number_gr: Mapped[str] = mapped_column(String(6))
+    day_deadline: Mapped[str] = mapped_column(String(10))
+    time_deadline: Mapped[str] = mapped_column(String(5))
+
 
     '''category: Mapped[int] = mapped_column(ForeignKey('categories.id'))'''
 
