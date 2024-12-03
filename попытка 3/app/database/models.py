@@ -53,8 +53,11 @@ class Deadline(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name_deadline: Mapped[str] = mapped_column(String(120))
     number_gr: Mapped[str] = mapped_column(String(6))
-    day_deadline: Mapped[str] = mapped_column(String(10))
-    time_deadline: Mapped[str] = mapped_column(String(5))
+    day: Mapped[str] = mapped_column(String(2))
+    month: Mapped[str] = mapped_column(String(2))
+    year: Mapped[str] = mapped_column(String(4))
+    hour: Mapped[str] = mapped_column(String(2))
+    minute: Mapped[str] = mapped_column(String(2))
 
 
     '''category: Mapped[int] = mapped_column(ForeignKey('categories.id'))'''

@@ -99,18 +99,11 @@ async def get_users(tg_id: int):
 async def get_subjects():
     async with async_session() as session:
         return await session.scalars(select(Object))
-
-
-async def get_deadlines(tg_id: int):
-    async with async_session() as session:
-        number_gr = await get_group(tg_id)
-        return await session.scalars(select(Deadline).where(Deadline.number_gr == number_gr))
     
 
-async def set_deadline(name_deadline: str, number_gr: str, day_deadline: str, time_deadline: str):
+async def set_deadline(name_deadline: str, number_gr: str, day: int, month: int, year: int, hour: int, minute: int):
     async with async_session() as session:
-        session.add(Deadline(name_deadline=name_deadline, number_gr=number_gr, day_deadline=day_deadline,
-                             time_deadline=time_deadline))
+        session.add(Deadline(name_deadline=name_deadline, number_gr=number_gr, day=day, month = month, year = year, hour = hour, minute = minute))
         await session.commit()
 
 

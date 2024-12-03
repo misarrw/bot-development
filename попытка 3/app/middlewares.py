@@ -1,13 +1,15 @@
 ### Импорты
 from aiogram import BaseMiddleware
+import aiogram.dispatcher.middlewares 
 from aiogram.types import TelegramObject
 from aiogram.types import Message, CallbackQuery, User
 from typing import Callable, Dict, Any, Awaitable
 import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 ### Импорты из файлов
-import app.database.requests as rq
+import app.database.requests.requests as rq
 
 
 ### Инициализация логгера модуля
@@ -57,6 +59,25 @@ class HandlerMiddleware(BaseMiddleware):
 
         return result
     
+
+class DeadlinesMiddleware(BaseMiddleware):
+    def __init__(self, scheduler: AsyncIOScheduler):
+        self.scheduler = scheduler
+
+    async def __call__(
+            self,
+            handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
+            event: TelegramObject,
+            data: Dict[str, Any]) -> Any:
+    
+        logger.debug('Вошли в %s', __class__.__name__)
+
+        data['apscheduler'] = self.scheduler
+
+        logger.debug('Вышли из %s', __class__.__name__)
+
+        return await handler(event, data)
+        
 '''class MasterHandlerMiddleware(BaseMiddleware):
     async def __call__(self,
                        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],

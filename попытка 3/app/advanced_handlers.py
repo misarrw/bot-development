@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 ### Импорты из файлов
-import app.database.requests as rq
+import app.database.requests.requests as rq
 import app.keyboards as kb
 from app.middlewares import PermissionMiddleware
 
@@ -36,3 +36,6 @@ async def edit_schedule(message: Message):
 async def edit_schedule(message: Message):
     await message.answer('ок')
 
+@advanced_router.callback_query(F.text == 'vip')
+async def vip(callback: CallbackQuery):
+    await callback.message.answer('випка')

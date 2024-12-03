@@ -4,12 +4,15 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from dotenv import load_dotenv
 import logging
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 ### Импорт из файлов
 from app.handlers import router
 from app.advanced_handlers import advanced_router
+from app.dd_handlers import dd_router
 from app.database.models import async_main
+import app.database.scheduler
 
 
 ### Стиль логгинга
@@ -35,9 +38,17 @@ async def main():
     dp = Dispatcher()
     dp.include_router(router)
     dp.include_router(advanced_router)
+    dp.include_router(dd_router)
+
 
     ### включение бота
     await dp.start_polling(bot)
+
+    ### инициализация скедулера
+    scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
+    scheduler.start()
+
+
 
 
 ### обработка исключений

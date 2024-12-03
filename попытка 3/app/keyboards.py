@@ -2,7 +2,7 @@
 from aiogram.types import (KeyboardButton, ReplyKeyboardMarkup, 
                            InlineKeyboardMarkup, InlineKeyboardButton)
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from app.database.requests import check_status, get_subjects, get_users
+from app.database.requests.requests import check_status, get_subjects, get_users
 
 
 ### Стартовая клавиатура
@@ -19,7 +19,7 @@ async def main(tg_id):
 master_settings = ReplyKeyboardMarkup(keyboard = [
     [KeyboardButton(text = 'Редактировать расписание'), 
      KeyboardButton(text = 'Изменить список группы')], 
-    [KeyboardButton(text = 'Отметить посещение'), 
+    [KeyboardButton(text = 'Отметить пропуски'), 
      KeyboardButton(text = 'Назначить/редактировать дедлайн')],
     [KeyboardButton(text = 'Назад')]
 ], resize_keyboard = True, input_field_placeholder = 'Только для старост')
@@ -40,10 +40,22 @@ curricular = ReplyKeyboardMarkup(keyboard = ([
     [KeyboardButton(text = 'Расписание'), 
      KeyboardButton(text = 'Список группы')], 
     [KeyboardButton(text = 'Посещение'), 
-     KeyboardButton(text = 'Дедлайны')], 
+     KeyboardButton(text = 'Мои дедлайны')], 
     [KeyboardButton(text = 'Назад')]]), 
                     resize_keyboard = True, 
                     input_field_placeholder = 'кто любит учиться вообще???')
+
+
+### Дедлайны
+deadlines = ReplyKeyboardMarkup(keyboard=(
+    [KeyboardButton(text = 'Активировать напоминания о дедлайнах')], 
+    [KeyboardButton(text = 'Деактивировать напоминания о дедлайнах')],
+    [KeyboardButton(text = 'Назад')]
+))
+deadlines1 = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text = 'Активация автонапоминаний о дедлайнах')], 
+    [KeyboardButton(text = 'Назад')]
+], resize_keyboard=True)
 
 
 ### Выбор группы
@@ -166,3 +178,15 @@ async def subjects():
 add_subjects = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Всё!')]
 ], resize_keyboard=True)
+
+
+
+
+
+
+
+
+
+vip = InlineKeyboardMarkup(inline_keyboard=[
+    [InlineKeyboardButton(text = 'vip?', callback_data='vip')]
+])

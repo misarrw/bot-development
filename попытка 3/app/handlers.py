@@ -1,13 +1,16 @@
 ### Импорты
-from aiogram import F, Router
+from aiogram import F, Router, Bot
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+import datetime
 
 ### Импорты из файлов
-import app.database.requests as rq
+import app.database.requests.requests as rq
 import app.keyboards as kb
+from app.database.requests.deadlines import get_deadlines
 from app.middlewares import HandlerMiddleware
 from app.sup_func import check_data
 
@@ -38,6 +41,7 @@ class Deadline(StatesGroup):
 
 ### Подключение роутеров
 router = Router()
+scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
 
 
 ### Подключение Middleware
@@ -138,7 +142,7 @@ async def edit_data(message: Message):
 ### Команда /help (она бесполезная)
 @router.message(Command('help'))
 async def cmd_help(message: Message):
-    await message.answer('S O S please some-one-help-me')
+    await message.answer('S O S please some-one-help-me', reply_markup=kb.vip)
 
 
 ### Список группы
@@ -208,9 +212,9 @@ async def contact6(callback: CallbackQuery):
 
 
 @router.message(Absent.back_home)
-@router.message(F.text == 'Отметить посещение')
+@router.message(F.text == 'Отметить пропуски')
 async def pick_subject(message: Message, state: FSMContext):
-    await message.answer('Выбери предмет',
+    await message.answer('Выбери предмет, по которому хочешь отметить отсутствие студента.',
                          reply_markup=await kb.subjects())
     await state.set_state(Absent.name_subject)
 
@@ -220,25 +224,25 @@ async def pick_subject2(message: Message, state: FSMContext):
     if message.text == 'Добавить предмет':
         await state.clear()
         await state.set_state(Subjects.subject)
-        await message.answer('Напиши название предмета, если хочешь добавить несколько, вводи в разных сообщения',
+        await message.answer('Напиши название предмета, по которому хочешь отметить отсутствие студента.\n Если хочешь добавить несколько, вводи в разных сообщениях.',
                              reply_markup=kb.add_subjects)
     else:
         await state.update_data(name_subject=message.text)
-        await message.answer('Выбери студентов',
+        await message.answer('Выбери студентов, отсуствие которых хочешь отметить.',
                              reply_markup=await kb.students(message.from_user.id))
         await state.set_state(Absent.name_user)
 
 
 @router.message(Absent.name_user)
 async def mark_absent(message: Message, state: FSMContext):
-    if message.text == 'ВСЁ!':
+    if message.text == 'Всё.':
         await state.clear()
-        await message.answer('Чем могу помочь?',
+        await message.answer('Что надо?',
                              reply_markup=await kb.main(message.from_user.id))
     else:
         number_group = await rq.get_group(message.from_user.id)
         if not await rq.check_student(message.text, *number_group):
-            await message.answer('Ошибка, студент не найден.')
+            await message.answer('Кажется, такого студента нет((')
         else:
             await state.update_data(name_user=message.text)
             data_mark = await state.get_data()
@@ -250,18 +254,18 @@ async def mark_absent(message: Message, state: FSMContext):
 @router.message(Subjects.subject)
 async def add_subject(message: Message, state: FSMContext):
     if message.text == 'Всё!':
-        await message.answer('Выбери предмет',
+        await message.answer('Выбери предмет, по которому хочешь отметить отсустствие студента.',
                              reply_markup=await kb.subjects())
         await state.clear()
         await state.set_state(Absent.back_home)
     elif not await rq.add_subject(message.text):
-        await message.answer('Ошибка, предмет уже существует!')
+        await message.answer('Такой предмет уже записан.')
         await state.set_state(Subjects.subject)
 
 
 @router.message(F.text == 'Пропуски')
 async def pick_subject_skip(message: Message, state: FSMContext):
-    await message.answer('Выберите предмет',
+    await message.answer('Выбери предмет',
                          reply_markup=await kb.subjects())
     await state.set_state(Subjects.subject_skip)
 
@@ -277,54 +281,95 @@ async def print_table_skips(message: Message):
 
 
 
-@router.message(F.text == 'Просмотреть дедлайны')
+@router.message(F.text == 'Мои дедлайны')
 async def begin_deadlines(message: Message):
+    await message.answer('Держи.\nP.S. Ты можешь пошерудить тут с напоминаниями о дедлайнах:', reply_markup=kb.deadlines1)
     global tab
-    deadlines = await rq.get_deadlines(message.from_user.id)
+    deadlines = await get_deadlines(message.from_user.id)
     sorted_deadlines_list = []
-    b_message = 'Дедлайн:'+tab*2+'Срок:\n'
+    b_message = ''
     for deadline in deadlines:
         sorted_deadlines_list.append(deadline)
-    sorted_deadlines_list = sorted(sorted_deadlines_list)
     for deadline in sorted_deadlines_list:
-        b_message += f'{deadline.name_deadline}'+tab+f'{deadline.day_deadline} {deadline.time_deadline}\n'
+        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' + f'{deadline.hour}:{deadline.minute}\n'
         print(b_message)
-    await message.answer(b_message,
-                         reply_markup=await kb.main(message.from_user.id))
+    await message.answer(b_message)
+    
+
+async def send_deadline(message: Message):
+    deadlines = await get_deadlines(message.from_user.id)
+    sorted_deadlines_list = []
+    b_message = 'Упс! Кажется, приближается время дедлайна!\n'
+    for deadline in deadlines:
+        sorted_deadlines_list.append(deadline)
+    for deadline in sorted_deadlines_list:
+        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.year} ' + f'{deadline.hour}:{deadline.minute}\n'
+        deadline_date = f'{deadline.day}.{deadline.month}.{deadline.year}'
+        '''current_date = str(datetime.datetime.now().strftime('%d.%m.%Y %H:%M'))'''
+        current_date = datetime.datetime.now()
+        if deadline_date == current_date:
+            await message.answer(b_message)
+        b_message = 'Упс! Кажется, приближается время дедлайна!\n'
+
+
+
+
+@router.message(F.text == 'Активация автонапоминаний о дедлайнах')
+async def activate_deadlines(message: Message):
+    await message.answer('Подтверди выбор об активации напоминаний.\nПри нажатии кнопки "Активировать..." тебе будут приходить напоминания о дедлайнах в день дедлайна', reply_markup=kb.deadlines)
+
+
+
+'''        b_message += f'{deadline.name_deadline}\n'+f'{deadline.day_deadline}\n{deadline.time_deadline}\n\n'''
 
 
 @router.message(F.text == 'Назначить/редактировать дедлайн')
 async def add_deadlines(message: Message, state: FSMContext):
     await state.set_state(Deadline.name_deadline)
-    await message.answer('Давай начнем с названия дедлайна')
+    await message.answer('Напиши название дедлайна, который хочешь создать.')
 
 
 @router.message(Deadline.name_deadline)
 async def dl_nm(message: Message, state: FSMContext):
     await state.update_data(name_deadline=message.text)
     await state.set_state(Deadline.day_deadline)
-    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год(два последних числа) час:минуты')
+    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.31 13:00')
 
 
 @router.message(Deadline.day_deadline)
 async def dl_d(message: Message, state: FSMContext):
     day = message.text
     if not check_data(day):
-        await message.answer('Ошибка! Неверный формат или время дедлайна уже истекло')
+        await message.answer('Перепроверь правильность написания дедлайна по образцу выше.\nНапомним формат записи: день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.31 13:00 ')
         await message.answer('Введите дату дедлайна в формате день.месяц.год')
         await state.set_state(Deadline.day_deadline)
     else:
         day_list = day.split(' ')
-        await state.update_data(day_deadline=day_list[0])
-        await state.update_data(time_deadline=day_list[1])
+        day_data = day_list[0].split('.')
+        day_time = day_list[1].split(':')
         data_deadline = await state.get_data()
         number_gr = await rq.get_group(message.from_user.id)
         await rq.set_deadline(name_deadline=data_deadline['name_deadline'], number_gr=number_gr,
-                              day_deadline=data_deadline['day_deadline'], time_deadline=data_deadline['time_deadline'])
+        day=str(day_data[0]),  month=str(day_data[1]),
+        year=str(day_data[2]), hour=str(day_time[0]), 
+        minute=str(day_time[1])) 
         await state.clear()
-        await message.answer('Дедлайн добавлен!')
-        await message.answer('Чем могу помочь?',
+        await message.answer('Круто, дедлайн добавлен.')
+        await message.answer('Что надо?',
                              reply_markup=await kb.main(message.from_user.id))
+
+
+### Дедлайны
+@router.callback_query(F.text == 'Активировать напоминания о дедлайнах')
+async def activate_deadlines(callback: CallbackQuery):
+    await callback.message.answer('Класс!')
+
+
+@router.callback_query(F.text == 'Деактивировать напоминания о дедлайнах')
+async def activate_deadlines(callback: CallbackQuery):
+    await callback.message.answer('Ну ладно')
+
+
 
 '''@router.callback_query(F.data == '241')'''
 '''async def group241(callback: CallbackQuery):'''
