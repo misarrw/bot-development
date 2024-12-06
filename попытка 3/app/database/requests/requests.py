@@ -16,6 +16,12 @@ async def set_user(name: str, tg_id: int, group: str, status: bool):
         session.add(User(name_user=name,tg_id=tg_id,number_gr=group,status=status))
         await session.commit()
 
+        
+async def get_deadlines(tg_id: int):
+    async with async_session() as session:
+        number_gr = await get_group(tg_id)
+        return await session.scalars(select(Deadline).where(Deadline.number_gr == number_gr))
+
 
 async def check_password(group: str, password: str):
     async with async_session() as session:

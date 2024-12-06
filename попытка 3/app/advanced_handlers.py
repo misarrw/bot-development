@@ -32,9 +32,9 @@ async def edit_schedule(message: Message):
 async def edit_schedule(message: Message):
     await message.answer('ок')
 
-@advanced_router.message(F.text == 'Назначить/редактировать дедлайн')
+'''@advanced_router.message(F.text == 'Назначить/редактировать дедлайн')
 async def edit_schedule(message: Message):
-    await message.answer('ок')
+    await message.answer('ок')'''
 
 @advanced_router.callback_query(F.text == 'vip')
 async def vip(callback: CallbackQuery):

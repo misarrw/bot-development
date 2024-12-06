@@ -1,7 +1,7 @@
 ### Импорты
 import os
 import asyncio
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, F, types
 from dotenv import load_dotenv
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -9,10 +9,11 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ### Импорт из файлов
 from app.handlers import router
+from app.deadline_handlers import deadline_router
 from app.advanced_handlers import advanced_router
-from app.dd_handlers import dd_router
 from app.database.models import async_main
 import app.database.scheduler
+from app.middlewares import DDMiddleware
 
 
 ### Стиль логгинга
@@ -38,15 +39,24 @@ async def main():
     dp = Dispatcher()
     dp.include_router(router)
     dp.include_router(advanced_router)
-    dp.include_router(dd_router)
+    dp.include_router(deadline_router)
+
+
+### инициализация скедулера
+    scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
+    scheduler.start()
+
+
+    
+
+
+    dp.update.middleware.register(DDMiddleware(scheduler))
 
 
     ### включение бота
     await dp.start_polling(bot)
 
-    ### инициализация скедулера
-    scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
-    scheduler.start()
+
 
 
 

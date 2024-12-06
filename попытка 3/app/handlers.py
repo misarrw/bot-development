@@ -10,8 +10,8 @@ import datetime
 ### Импорты из файлов
 import app.database.requests.requests as rq
 import app.keyboards as kb
-from app.database.requests.deadlines import get_deadlines
-from app.middlewares import HandlerMiddleware
+'''from app.middlewares import HandlerMiddleware'''
+from app.deadline_handlers import activate_deadlines
 from app.sup_func import check_data
 
 
@@ -33,10 +33,7 @@ class Subjects(StatesGroup):
 
 
 ### иные классы
-class Deadline(StatesGroup):
-    name_deadline = State()
-    day_deadline = State()
-    time_deadline = State()
+
 
 
 ### Подключение роутеров
@@ -45,7 +42,7 @@ scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
 
 
 ### Подключение Middleware
-router.message.outer_middleware(HandlerMiddleware())
+'''router.message.outer_middleware(HandlerMiddleware())'''
 
 
 ### Ввод переменных
@@ -64,7 +61,7 @@ async def cmd_start(message: Message, state: FSMContext):
         await message.answer('Выбери свою бибику (группу)',
                          reply_markup=kb.reg_groups)
     else:
-        await message.answer('Что надо?', reply_markup=kb.main)
+        await message.answer('Что надо?', reply_markup=await kb.main(message.from_user.id))
 
 
 ### регистрация
@@ -116,7 +113,7 @@ async def reg_st(message: Message, state: FSMContext):
     await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'], data_reg['status'])
     await state.clear()
     await message.answer('Вроде зарегистрировались.\nЧто надо?',
-                         reply_markup = kb.main)
+                         reply_markup = await kb.main(message.from_user.id))
 
 
 ### Расписание
@@ -177,8 +174,9 @@ async def contacts_cmd(message: Message):
 
 ### Назад
 @router.message(F.text == 'Назад')
-async def back_cmd(message: Message):
+async def back_cmd(message: Message, state: FSMContext):
     await message.answer('Ну и пожалуйста', reply_markup= await kb.main(message.from_user.id))
+    await state.clear()
 
 
 ### Контакты (конкретно)
@@ -285,7 +283,7 @@ async def print_table_skips(message: Message):
 async def begin_deadlines(message: Message):
     await message.answer('Держи.\nP.S. Ты можешь пошерудить тут с напоминаниями о дедлайнах:', reply_markup=kb.deadlines1)
     global tab
-    deadlines = await get_deadlines(message.from_user.id)
+    deadlines = await rq.get_deadlines(message.from_user.id)
     sorted_deadlines_list = []
     b_message = ''
     for deadline in deadlines:
@@ -296,26 +294,11 @@ async def begin_deadlines(message: Message):
     await message.answer(b_message)
     
 
-async def send_deadline(message: Message):
-    deadlines = await get_deadlines(message.from_user.id)
-    sorted_deadlines_list = []
-    b_message = 'Упс! Кажется, приближается время дедлайна!\n'
-    for deadline in deadlines:
-        sorted_deadlines_list.append(deadline)
-    for deadline in sorted_deadlines_list:
-        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.year} ' + f'{deadline.hour}:{deadline.minute}\n'
-        deadline_date = f'{deadline.day}.{deadline.month}.{deadline.year}'
-        '''current_date = str(datetime.datetime.now().strftime('%d.%m.%Y %H:%M'))'''
-        current_date = datetime.datetime.now()
-        if deadline_date == current_date:
-            await message.answer(b_message)
-        b_message = 'Упс! Кажется, приближается время дедлайна!\n'
-
 
 
 
 @router.message(F.text == 'Активация автонапоминаний о дедлайнах')
-async def activate_deadlines(message: Message):
+async def deadlines_activation(message: Message):
     await message.answer('Подтверди выбор об активации напоминаний.\nПри нажатии кнопки "Активировать..." тебе будут приходить напоминания о дедлайнах в день дедлайна', reply_markup=kb.deadlines)
 
 
@@ -323,50 +306,16 @@ async def activate_deadlines(message: Message):
 '''        b_message += f'{deadline.name_deadline}\n'+f'{deadline.day_deadline}\n{deadline.time_deadline}\n\n'''
 
 
-@router.message(F.text == 'Назначить/редактировать дедлайн')
-async def add_deadlines(message: Message, state: FSMContext):
-    await state.set_state(Deadline.name_deadline)
-    await message.answer('Напиши название дедлайна, который хочешь создать.')
-
-
-@router.message(Deadline.name_deadline)
-async def dl_nm(message: Message, state: FSMContext):
-    await state.update_data(name_deadline=message.text)
-    await state.set_state(Deadline.day_deadline)
-    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.31 13:00')
-
-
-@router.message(Deadline.day_deadline)
-async def dl_d(message: Message, state: FSMContext):
-    day = message.text
-    if not check_data(day):
-        await message.answer('Перепроверь правильность написания дедлайна по образцу выше.\nНапомним формат записи: день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.31 13:00 ')
-        await message.answer('Введите дату дедлайна в формате день.месяц.год')
-        await state.set_state(Deadline.day_deadline)
-    else:
-        day_list = day.split(' ')
-        day_data = day_list[0].split('.')
-        day_time = day_list[1].split(':')
-        data_deadline = await state.get_data()
-        number_gr = await rq.get_group(message.from_user.id)
-        await rq.set_deadline(name_deadline=data_deadline['name_deadline'], number_gr=number_gr,
-        day=str(day_data[0]),  month=str(day_data[1]),
-        year=str(day_data[2]), hour=str(day_time[0]), 
-        minute=str(day_time[1])) 
-        await state.clear()
-        await message.answer('Круто, дедлайн добавлен.')
-        await message.answer('Что надо?',
-                             reply_markup=await kb.main(message.from_user.id))
 
 
 ### Дедлайны
 @router.callback_query(F.text == 'Активировать напоминания о дедлайнах')
-async def activate_deadlines(callback: CallbackQuery):
+async def activate_deadlines_1(callback: CallbackQuery):
     await callback.message.answer('Класс!')
 
 
 @router.callback_query(F.text == 'Деактивировать напоминания о дедлайнах')
-async def activate_deadlines(callback: CallbackQuery):
+async def deactivate_deadlines(callback: CallbackQuery):
     await callback.message.answer('Ну ладно')
 
 

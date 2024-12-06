@@ -16,6 +16,9 @@ import app.database.requests.requests as rq
 logger = logging.getLogger(__name__)
 
 
+scheduler = AsyncIOScheduler()
+
+
 ### Реализация функции из файла 'requests.py'
 async def get_status(message: Message):
     return await rq.get_user_status(message.from_user.id)
@@ -60,9 +63,9 @@ class HandlerMiddleware(BaseMiddleware):
         return result
     
 
-class DeadlinesMiddleware(BaseMiddleware):
+class DDMiddleware(BaseMiddleware):
     def __init__(self, scheduler: AsyncIOScheduler):
-        self.scheduler = scheduler
+        self._scheduler = scheduler
 
     async def __call__(
             self,
@@ -72,11 +75,13 @@ class DeadlinesMiddleware(BaseMiddleware):
     
         logger.debug('Вошли в %s', __class__.__name__)
 
-        data['apscheduler'] = self.scheduler
+        data['apscheduler'] = self._scheduler
+
+        result = await handler(event, data)
 
         logger.debug('Вышли из %s', __class__.__name__)
 
-        return await handler(event, data)
+        return result
         
 '''class MasterHandlerMiddleware(BaseMiddleware):
     async def __call__(self,
