@@ -1,39 +1,38 @@
 ### Импорты
-from aiogram import F, Router, Bot
+from aiogram import F, Router
 from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-import datetime
 
 ### Импорты из файлов
-import database.requests.requests as rq
+import database.requests as rq
 import keyboards as kb
 '''from app.middlewares import HandlerMiddleware'''
-from deadline_handlers import activate_deadlines
-from sup_func import check_data
 
 
-### Этапы регистрации
+### Классы состояния
+class Absent(StatesGroup):
+    back_home = State()
+    name_subject = State()
+    username = State()
+
+
 class Reg(StatesGroup):
     group = State()
     status = State()
     password = State()
     name = State()
 
-class Absent(StatesGroup):
-    back_home = State()
-    name_subject = State()
-    name_user = State()
+
+class Scheduler(StatesGroup):
+    pass
+
 
 class Subjects(StatesGroup):
     subject = State()
     subject_skip = State()
-
-
-### иные классы
-
 
 
 ### Подключение роутеров
@@ -54,7 +53,7 @@ tab = ' '*8
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     await message.answer('Кчау... Я твоя бибика. Чем смогу, помогу')
-    if await rq.set_user_id(message.from_user.id) == False:
+    if not await rq.set_user_id(message.from_user.id):
         await message.answer('Но мы с тобой не знакомы пока,\nтак что ' + 
                              'расскажи мне, кто ты')
         await state.set_state(Reg.group)
@@ -92,8 +91,8 @@ async def check_password(message: Message, state: FSMContext):
             itr_password += 1
             await state.update_data(password=message.text)
             await state.set_state(Reg.password)
-            await message.answer(f'Пароль не такой!. Еще {3-itr_password} попытки/а')
-        elif itr_password == 3:
+            await message.answer(f'Пароль не такой!. Еще {3 - itr_password} попытки/а')
+        elif itr_password == 2:
             await state.set_state(Reg.status)
             await message.answer('Не верю')
             await message.answer('Давай знакомиться. Введи свои имя и фамилию')
@@ -113,7 +112,13 @@ async def reg_st(message: Message, state: FSMContext):
     await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'], data_reg['status'])
     await state.clear()
     await message.answer('Вроде зарегистрировались.\nЧто надо?',
-                         reply_markup = await kb.main(message.from_user.id))
+                         reply_markup=await kb.main(message.from_user.id))
+
+
+### Учебное
+@router.message(F.text == 'Учебное')
+async def curricular(message: Message):
+    await message.answer('Всё для тебя', reply_markup=kb.curricular)
 
 
 ### Расписание
@@ -122,36 +127,48 @@ async def get_schedule(message: Message):
     await message.answer('Держи расписание своей группы')
     schedule = await rq.get_schedule(message.from_user.id)
     for i in schedule:
-        await message.answer(f'Понедельник:\n{i.monday}\nВторник:\n' + 
+        await message.answer(f'Понедельник:\n{i.monday}\nВторник:\n' +
                              f'{i.tuesday}\n' +
-                             f'Среда:\n{i.wednesday}\nЧетверг:\n' + 
+                             f'Среда:\n{i.wednesday}\nЧетверг:\n' +
                              f'{i.thursday}\n' +
                              f'Пятница:\n{i.friday}\nСуббота:\n{i.saturday}\n')
 
 
-### Опции для старост
-@router.message(F.text == 'Редактирование данных')
-async def edit_data(message: Message):
-    await message.answer('Настройки для старост', 
-                         reply_markup = kb.master_settings)
-
-
-### Команда /help (она бесполезная)
-@router.message(Command('help'))
-async def cmd_help(message: Message):
-    await message.answer('S O S please some-one-help-me', reply_markup=kb.vip)
-
-
-### Список группы
 @router.message(F.text == 'Список группы')
 async def groups(message: Message):
     await message.answer('Choose your бибика', reply_markup=kb.groups)
 
 
-### Учебное
-@router.message(F.text == 'Учебное')
-async def curricular(message: Message):
-    await message.answer('Всё для тебя', reply_markup=kb.curricular)
+@router.message(F.text == 'Посещение')
+async def user_pass(message: Message):
+    skips = await rq.get_user_skips(message.from_user.id)
+    await message.answer(*skips)
+
+
+@router.message(F.text == 'Мои дедлайны')
+async def begin_deadlines(message: Message):
+    global tab
+    deadlines = await rq.get_deadlines(message.from_user.id)
+    sorted_deadlines_list = []
+    b_message = ''
+    for deadline in deadlines:
+        sorted_deadlines_list.append(deadline)
+    for deadline in sorted_deadlines_list:
+        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' + f'{deadline.hour}:{deadline.minute}\n'
+    await message.answer(b_message)
+
+
+### Команда /help (она бесполезная)
+@router.message(Command('help'))
+async def cmd_help(message: Message):
+    await message.answer('S O S please some-one-help-me(barca>real)')
+
+
+### Назад
+@router.message(F.text == 'Назад')
+async def back_cmd(message: Message, state: FSMContext):
+    await message.answer('Ну и пожалуйста', reply_markup=await kb.main(message.from_user.id))
+    await state.clear()
 
 
 ### Внеучебное
@@ -170,13 +187,6 @@ async def channels(message: Message):
 @router.message(F.text == 'Если кому-то пожаловаться надо (контакты)')
 async def contacts_cmd(message: Message):
     await message.answer('Полезное из контактов', reply_markup=kb.contacts)
-
-
-### Назад
-@router.message(F.text == 'Назад')
-async def back_cmd(message: Message, state: FSMContext):
-    await message.answer('Ну и пожалуйста', reply_markup= await kb.main(message.from_user.id))
-    await state.clear()
 
 
 ### Контакты (конкретно)
@@ -205,10 +215,19 @@ async def contact6(callback: CallbackQuery):
     await callback.message.answer('приемная комиссия\nТелефон: (495) 771-32-42; (495) 916-88-44')
 
 
+### Опции для старост
+@router.message(F.text == 'Редактирование данных')
+async def edit_data(message: Message):
+    await message.answer('Настройки для старост',
+                         reply_markup=kb.master_settings)
 
 
+@router.message(F.text == 'Редактировать расписание')
+async def edit_scheduler(message: Message):
+    pass
 
 
+### пропуски
 @router.message(Absent.back_home)
 @router.message(F.text == 'Отметить пропуски')
 async def pick_subject(message: Message, state: FSMContext):
@@ -226,27 +245,27 @@ async def pick_subject2(message: Message, state: FSMContext):
                              reply_markup=kb.add_subjects)
     else:
         await state.update_data(name_subject=message.text)
-        await message.answer('Выбери студентов, отсуствие которых хочешь отметить.',
+        await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
                              reply_markup=await kb.students(message.from_user.id))
-        await state.set_state(Absent.name_user)
+        await state.set_state(Absent.username)
 
 
-@router.message(Absent.name_user)
+@router.message(Absent.username)
 async def mark_absent(message: Message, state: FSMContext):
     if message.text == 'Всё.':
         await state.clear()
         await message.answer('Что надо?',
                              reply_markup=await kb.main(message.from_user.id))
     else:
-        number_group = await rq.get_group(message.from_user.id)
-        if not await rq.check_student(message.text, *number_group):
+        group = await rq.get_group(message.from_user.id)
+        if not await rq.check_student(message.text, *group):
             await message.answer('Кажется, такого студента нет((')
         else:
-            await state.update_data(name_user=message.text)
+            await state.update_data(username=message.text)
             data_mark = await state.get_data()
-            await rq.set_absent(name_user=data_mark['name_user'], number_group=number_group[0],
+            await rq.set_absent(username=data_mark['username'], group=group[0],
                                 name_object=data_mark['name_subject'])
-        await state.set_state(Absent.name_user)
+        await state.set_state(Absent.username)
 
 
 @router.message(Subjects.subject)
@@ -270,30 +289,9 @@ async def pick_subject_skip(message: Message, state: FSMContext):
 
 @router.message(Subjects.subject_skip)
 async def print_table_skips(message: Message):
-    sorted_absents_list = await rq.get_absents(message.from_user.id)
-    ending_str = f'Пропуски предмета {message.text}\n'
-    for absent in sorted_absents_list:
-        cnt_gap = await rq.get_cnt_gap(absent)
-        ending_str += f'{absent} - {cnt_gap} пропуска\n'
+    absents_list = await rq.get_absents(message.from_user.id)
+    ending_str = f'Пропуски предмета {message.text}\n' + ''.join(absents_list)
     await message.answer(ending_str)
-
-
-
-@router.message(F.text == 'Мои дедлайны')
-async def begin_deadlines(message: Message):
-    await message.answer('Держи.\nP.S. Ты можешь пошерудить тут с напоминаниями о дедлайнах:', reply_markup=kb.deadlines1)
-    global tab
-    deadlines = await rq.get_deadlines(message.from_user.id)
-    sorted_deadlines_list = []
-    b_message = ''
-    for deadline in deadlines:
-        sorted_deadlines_list.append(deadline)
-    for deadline in sorted_deadlines_list:
-        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' + f'{deadline.hour}:{deadline.minute}\n'
-        print(b_message)
-    await message.answer(b_message)
-    
-
 
 
 

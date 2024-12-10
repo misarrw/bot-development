@@ -1,5 +1,6 @@
 import datetime
 
+
 def check_data(day):
     dt_now = datetime.datetime.now()
     try:
