@@ -7,8 +7,8 @@ from aiogram.fsm.context import FSMContext
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ### Импорты из файлов
-import database.requests as rq
-import keyboards as kb
+import app.database.requests as rq
+import app.keyboards as kb
 '''from app.middlewares import HandlerMiddleware'''
 
 
@@ -66,10 +66,14 @@ async def cmd_start(message: Message, state: FSMContext):
 ### регистрация
 @router.message(Reg.group)
 async def reg_gr(message: Message, state: FSMContext):
-    await state.update_data(group=message.text)
-    await state.set_state(Reg.password)
-    await message.answer('Окей, если ты (зам)староста, введи пароль:',
-                         reply_markup=kb.skip)
+    groups = ['б241иб', 'б242иб', 'б243иб', 'б244иб', 'б245иб']
+    if message.text not in groups:
+        await message.answer('Некорретное название группы. Попробуй нажать на одну из кнопок на клавиатуре.')
+    else:
+        await state.update_data(group=message.text)
+        await state.set_state(Reg.password)
+        await message.answer('Окей, если ты (зам)староста, введи пароль:',
+                                reply_markup=kb.skip)
 
 
 @router.message(Reg.password)

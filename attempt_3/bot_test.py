@@ -3,9 +3,9 @@ from unittest.mock import AsyncMock
 import unittest
 
 
-import sup_func as sf
-import handlers as h
-import keyboards as kb
+import app.sup_func as sf
+import app.handlers as h
+import app.keyboards as kb
 
 class BotTest(unittest.TestCase):
     def test_check_data__positive(self):
@@ -16,6 +16,9 @@ class BotTest(unittest.TestCase):
         date = ('08.12.24 1:00')
         with pytest.raises(AssertionError):
             self.assertTrue(sf.check_data(date))
+
+
+
 
 
 ### Положительные тесты

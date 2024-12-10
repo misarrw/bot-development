@@ -1,5 +1,5 @@
-from models import async_session
-from models import User, Password, Schedule, Object, Deadline, Absent
+from app.database.models import async_session
+from app.database.models import User, Password, Schedule, Object, Deadline, Absent
 from sqlalchemy import select
 import hashlib
 

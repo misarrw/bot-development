@@ -6,7 +6,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 
 ### Импорты из файлов
-import app.database.requests.requests as rq
+import app.database.requests as rq
 import app.keyboards as kb
 from app.middlewares import PermissionMiddleware
 

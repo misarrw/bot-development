@@ -9,7 +9,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
 ### Импорты из файлов
-from database.requests import check_status
+from app.database.requests import check_status
 
 
 ### Инициализация логгера модуля

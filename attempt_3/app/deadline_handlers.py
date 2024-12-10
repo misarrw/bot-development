@@ -8,9 +8,9 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 ### Импорты из файлов
-import attempt_3.app.database.requests as rq
-import keyboards as kb
-from sup_func import check_data
+import app.database.requests as rq
+import app.keyboards as kb
+from app.sup_func import check_data
 
 
 class Deadline(StatesGroup):
@@ -70,7 +70,7 @@ async def activate_deadlines(message: Message, apscheduler: AsyncIOScheduler, da
 async def send_deadline(message: Message, bot: Bot, date, name):
     users_list = await rq.get_users(message.from_user.id)
     for user in users_list:
-        await bot.send_message(user.tg_id, f'Кажется, приближается время дедлайна\nНазвание дедлайна:{name}\nВремя дедлайна:{date}')
+        await bot.send_message(user.tg_id, f'Кажется, приближается время дедлайна\nНазвание дедлайна: {name}\nВремя дедлайна: {date}')
 
 
         

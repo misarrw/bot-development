@@ -12,7 +12,6 @@ from app.handlers import router
 from app.deadline_handlers import deadline_router
 from app.advanced_handlers import advanced_router
 from app.database.models import async_main
-import app.database.scheduler
 from app.middlewares import DDMiddleware
 
 
