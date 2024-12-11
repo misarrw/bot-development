@@ -8,20 +8,36 @@ import app.handlers as h
 import app.keyboards as kb
 
 class BotTest(unittest.TestCase):
-    def test_check_data__positive(self):
-       date = ('08.12.2024 13:00')
-       self.assertFalse(sf.check_data(date))
 
-    def test_sup_func_negative(self):
-        date = ('08.12.24 1:00')
-        with pytest.raises(AssertionError):
-            self.assertTrue(sf.check_data(date))
+    def test_convert_into_group_number_negative(self):
+        with pytest.raises(ValueError):
+            text = ''
+            self.assertRaises(sf.convert_into_group_number(text))
+
+    
+    def test_convert_into_group_number_positive(self):
+        text = '241'
+        self.assertTrue(sf.convert_into_group_number(text))
 
 
+    def test_check_data_positive(self):
+        day = '01.01.2031 13:00'
+        self.assertTrue(sf.check_data(day))
 
+
+    def test_check_data_positive(self):
+        day = '01.01.31 13:00'
+        with pytest.raises(ValueError):
+            self.assertRaises(sf.check_data(day))
+
+    
+    
 
 
 ### Положительные тесты
+
+
+
 @pytest.mark.asyncio
 async def test_edit_data_positive():
     message = AsyncMock()
@@ -89,6 +105,8 @@ async def test_contact4_positive():
 
 
 ### Отрицательные тесты
+
+
 @pytest.mark.asyncio
 async def test_edit_data_negative():
     message = AsyncMock()

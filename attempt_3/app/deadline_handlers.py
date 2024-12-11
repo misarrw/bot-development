@@ -33,30 +33,35 @@ async def add_deadlines(message: Message, state: FSMContext):
 async def dl_nm(message: Message, state: FSMContext):
     await state.update_data(name_deadline=message.text)
     await state.set_state(Deadline.day_deadline)
-    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.31 13:00')
+    await message.answer('Теперь введи дату и время дедлайна в формате день.месяц.год час:минуты\nНапример, 01.01.2031 13:00')
 
 
 @deadline_router.message(Deadline.day_deadline)
 async def dl_d(message: Message, state: FSMContext, apscheduler: AsyncIOScheduler, bot: Bot):
     day = message.text
-    if not check_data(day):
-        await message.answer('Перепроверь правильность написания дедлайна по образцу выше.\nНапомним формат записи: день.месяц.год(два последних числа) час:минуты\nНапример, 01.01.2031 13:00 ')
+    try:
+        if check_data(day):
+            day_list = day.split(' ')
+            day_data = day_list[0].split('.')
+            day_time = day_list[1].split(':')
+            data_deadline = await state.get_data()
+            group = await rq.get_group(message.from_user.id)
+            await rq.set_deadline(name_deadline=data_deadline['name_deadline'], group=group,
+            day=day_data[0],  month=day_data[1],
+            year=day_data[2], hour=day_time[0],
+            minute=day_time[1])
+            await activate_deadlines(message, apscheduler,  day_data, day_time, bot, data_deadline['name_deadline'])
+            await message.answer('Круто, дедлайн добавлен.')
+            await message.answer('Что надо?',
+                                reply_markup=await kb.main(message.from_user.id))
+        else:
+            await message.answer('Дата неактуальна. Повтори попытку.\nНапомним формат записи: день.месяц.год час:минуты\nНапример, 01.01.2031 13:00 ')
+            await message.answer('Введите дату дедлайна в формате день.месяц.год')
+            await state.set_state(Deadline.day_deadline)
+    except ValueError:
+        await message.answer('Перепроверь правильность написания дедлайна по образцу выше.\nНапомним формат записи: день.месяц.год час:минуты\nНапример, 01.01.2031 13:00 ')
         await message.answer('Введите дату дедлайна в формате день.месяц.год')
         await state.set_state(Deadline.day_deadline)
-    else:
-        day_list = day.split(' ')
-        day_data = day_list[0].split('.')
-        day_time = day_list[1].split(':')
-        data_deadline = await state.get_data()
-        group = await rq.get_group(message.from_user.id)
-        await rq.set_deadline(name_deadline=data_deadline['name_deadline'], group=group,
-        day=day_data[0],  month=day_data[1],
-        year=day_data[2], hour=day_time[0],
-        minute=day_time[1])
-        await activate_deadlines(message, apscheduler,  day_data, day_time, bot, data_deadline['name_deadline'])
-        await message.answer('Круто, дедлайн добавлен.')
-        await message.answer('Что надо?',
-                             reply_markup=await kb.main(message.from_user.id))
 
 
 async def activate_deadlines(message: Message, apscheduler: AsyncIOScheduler, day_data, day_time, bot: Bot, name):

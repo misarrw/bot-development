@@ -95,10 +95,10 @@ async def get_user_skips(tg_id: int) -> list:
         return sorted(skips_list)
 
 
-async def set_absent(username: str, group: str, name_object: str) -> None:
+async def set_absent(username: str, group: str, name_object: str, number: int) -> None:
     async with async_session() as session:
         if await session.scalar(select(Absent).where(Absent.subject == name_object).where(Absent.username
-                                                                                              == username)):
+                                                                                              == username)) and number == 1:
             str_absent = await session.scalars(select(Absent).where(Absent.subject == name_object)
                                                .where(Absent.username == username))
             for i in str_absent:
