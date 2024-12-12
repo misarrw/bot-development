@@ -75,8 +75,8 @@ master_settings = ReplyKeyboardMarkup(keyboard = [
 
 ### Выбор группы при регистрации
 reg_groups = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='б241иб'), KeyboardButton(text='б242иб')],
-    [KeyboardButton(text='б243иб'), KeyboardButton(text='б244иб'), KeyboardButton(text='б245иб')]
+    [KeyboardButton(text='241'), KeyboardButton(text='242')],
+    [KeyboardButton(text='243'), KeyboardButton(text='244'), KeyboardButton(text='245')]
 ], resize_keyboard=True)
 
 ### Назад (пропуск действия)

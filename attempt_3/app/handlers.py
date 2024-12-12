@@ -4,12 +4,18 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
+import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ### Импорты из файлов
-import app.database.requests as rq
-import app.keyboards as kb
+import database.requests as rq
+import keyboards as kb
+import sup_func as sf
 '''from app.middlewares import HandlerMiddleware'''
+
+
+### Инициализация логера модуля
+logger = logging.getLogger(__name__)
 
 
 ### Классы состояния
@@ -17,6 +23,8 @@ class Absent(StatesGroup):
     back_home = State()
     name_subject = State()
     username = State()
+    gap_number = State()
+    selection = State()
 
 
 class Reg(StatesGroup):
@@ -52,8 +60,9 @@ tab = ' '*8
 ### стартовая команда
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
+    logger.debug('ЭТАП РЕГИСТРАЦИИ: ВЫБОР ГРУППЫ')
     await message.answer('Кчау... Я твоя бибика. Чем смогу, помогу')
-    if not await rq.set_user_id(message.from_user.id):
+    if not await rq.get_user_id(message.from_user.id):
         await message.answer('Но мы с тобой не знакомы пока,\nтак что ' + 
                              'расскажи мне, кто ты')
         await state.set_state(Reg.group)
@@ -66,24 +75,32 @@ async def cmd_start(message: Message, state: FSMContext):
 ### регистрация
 @router.message(Reg.group)
 async def reg_gr(message: Message, state: FSMContext):
-    groups = ['б241иб', 'б242иб', 'б243иб', 'б244иб', 'б245иб']
-    if message.text not in groups:
-        await message.answer('Некорретное название группы. Попробуй нажать на одну из кнопок на клавиатуре.')
-    else:
-        await state.update_data(group=message.text)
-        await state.set_state(Reg.password)
-        await message.answer('Окей, если ты (зам)староста, введи пароль:',
-                                reply_markup=kb.skip)
+    try:
+        if sf.convert_into_group_number(message.text):
+            await state.update_data(group=int(message.text))
+            await state.set_state(Reg.password)
+            await message.answer('Окей, если ты (зам)староста, введи пароль:',
+                                    reply_markup=kb.skip)
+            logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ПАРОЛЯ')
+        else:
+            await message.answer('Такой группы нет. Попробуй нажать на одну из кнопок на клавиатуре.')
+            await state.set_state(Reg.group)
+    except ValueError:
+        await message.answer('Номер группы состоит из цифр')
+        await state.set_state(Reg.group)
+
 
 
 @router.message(Reg.password)
 async def check_password(message: Message, state: FSMContext):
+    logger.debug('')
     global itr_password
     intermediate_data = await state.get_data()
     if message.text == 'скип':
         await state.update_data(password=message.text)
         await state.set_state(Reg.status)
         await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+        logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
     else:
         check = await rq.check_password(intermediate_data['group'], message.text)
         if check:
@@ -91,6 +108,7 @@ async def check_password(message: Message, state: FSMContext):
             await state.set_state(Reg.status)
             await message.answer('Верю')
             await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+            logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
         elif not check and itr_password < 3:
             itr_password += 1
             await state.update_data(password=message.text)
@@ -100,6 +118,8 @@ async def check_password(message: Message, state: FSMContext):
             await state.set_state(Reg.status)
             await message.answer('Не верю')
             await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+            logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
+
 
 
 @router.message(Reg.status)
@@ -113,8 +133,10 @@ async def reg_st(message: Message, state: FSMContext):
     await state.set_state(Reg.name)
     await state.update_data(name = message.text)
     data_reg = await state.get_data()
-    await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'], data_reg['status'])
+    await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'],
+                      data_reg['status'])
     await state.clear()
+    logger.debug('РЕГИСТРАЦИЯ ЗАВЕРШЕНА')
     await message.answer('Вроде зарегистрировались.\nЧто надо?',
                          reply_markup=await kb.main(message.from_user.id))
 
@@ -158,7 +180,8 @@ async def begin_deadlines(message: Message):
     for deadline in deadlines:
         sorted_deadlines_list.append(deadline)
     for deadline in sorted_deadlines_list:
-        b_message += f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' + f'{deadline.hour}:{deadline.minute}\n'
+        b_message += (f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' +
+                      f'{deadline.hour}:{deadline.minute}\n')
     await message.answer(b_message)
 
 
@@ -200,11 +223,13 @@ async def contact1(callback: CallbackQuery):
 
 @router.callback_query(F.data == 'Павлова')
 async def contact2(callback: CallbackQuery):
-    await callback.message.answer('Павлова Татьяна Александровна\nТелефон: +7 (495) 772-95-90; 11093\n Почта: miem-office@hse.ru')
+    await callback.message.answer('Павлова Татьяна Александровна\nТелефон: +7 (495) 772-95-90; 11093\n '
+                                  'Почта: miem-office@hse.ru')
 
 @router.callback_query(F.data == 'Тестова')
 async def contact3(callback: CallbackQuery):
-    await callback.message.answer('Тестова Екатерина Алексеевна\nТелефон: +7 (495) 772-95-90; 15179\n Почта: miem-office@hse.ru')
+    await callback.message.answer('Тестова Екатерина Алексеевна\nТелефон: +7 (495) 772-95-90; 15179\n '
+                                  'Почта: miem-office@hse.ru')
 
 @router.callback_query(F.data == 'Справочная')
 async def contact4(callback: CallbackQuery):
@@ -245,17 +270,24 @@ async def pick_subject2(message: Message, state: FSMContext):
     if message.text == 'Добавить предмет':
         await state.clear()
         await state.set_state(Subjects.subject)
-        await message.answer('Напиши название предмета, по которому хочешь отметить отсутствие студента.\n Если хочешь добавить несколько, вводи в разных сообщениях.',
+        await message.answer('Напиши название предмета, по которому хочешь отметить отсутствие студента.\n '
+                             'Если хочешь добавить несколько, вводи в разных сообщениях.',
                              reply_markup=kb.add_subjects)
     else:
         await state.update_data(name_subject=message.text)
-        await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
-                             reply_markup=await kb.students(message.from_user.id))
-        await state.set_state(Absent.username)
+        await state.set_state(Absent.selection)
+        
+
+@router.message(Absent.selection)
+async def way_to_set_gap_number(message: Message):
+    await message.answer('Выбери способ отметить пропуск предмета студентом:')
 
 
 @router.message(Absent.username)
+@router.message(F.text == 'Автоматически отметить 1 пропуск')
 async def mark_absent(message: Message, state: FSMContext):
+    await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
+                             reply_markup=await kb.students(message.from_user.id))
     if message.text == 'Всё.':
         await state.clear()
         await message.answer('Что надо?',
@@ -267,9 +299,39 @@ async def mark_absent(message: Message, state: FSMContext):
         else:
             await state.update_data(username=message.text)
             data_mark = await state.get_data()
-            await rq.set_absent(username=data_mark['username'], group=group[0],
-                                name_object=data_mark['name_subject'])
+            await rq.set_absent(username=data_mark['username'], group=int(group[0]),
+                                subject=data_mark['name_subject'], number=1)
         await state.set_state(Absent.username)
+
+
+@router.message(Absent.gap_number)
+@router.message(F.text == 'Вписать количество пропущенных занятий вручную')
+async def set_gap_number(message: Message, state: FSMContext):
+    await message.answer('Выбери студента, отсутствие которого хочешь отметить.',
+                             reply_markup=await kb.students(message.from_user.id))
+    if message.text == 'Всё.':
+        await state.clear()
+        await message.answer('Что надо?',
+                             reply_markup=await kb.main(message.from_user.id))
+    else:
+        group = await rq.get_group(message.from_user.id)
+        if not await rq.check_student(message.text, *group):
+            await message.answer('Кажется, такого студента нет((')
+        else:
+            await state.update_data(username=message.text)
+        await message.answer('Введи количество пропуском студентом вручную')
+        try:
+            if sf.check_value(message.text):
+                data_mark = await state.get_data()
+                await rq.set_absent(username=data_mark['username'], group=int(group[0]),
+                                    subject=data_mark['name_subject'], number=int(message.text))
+
+            else:
+                await message.answer('Число не может быть меньше 0')
+                await state.set_state(Absent.gap_number)
+        except ValueError:
+            await message.answer('Введи число')
+            await state.set_state(Absent.gap_number)
 
 
 @router.message(Subjects.subject)
@@ -299,9 +361,9 @@ async def print_table_skips(message: Message):
 
 
 
-@router.message(F.text == 'Активация автонапоминаний о дедлайнах')
+'''@router.message(F.text == 'Активация автонапоминаний о дедлайнах')
 async def deadlines_activation(message: Message):
-    await message.answer('Подтверди выбор об активации напоминаний.\nПри нажатии кнопки "Активировать..." тебе будут приходить напоминания о дедлайнах в день дедлайна', reply_markup=kb.deadlines)
+    await message.answer('Подтверди выбор об активации напоминаний.\nПри нажатии кнопки "Активировать..." тебе будут приходить напоминания о дедлайнах в день дедлайна', reply_markup=kb.deadlines)'''
 
 
 

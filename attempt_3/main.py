@@ -16,7 +16,7 @@ from app.middlewares import DDMiddleware
 
 
 ### Стиль логгинга
-logging.basicConfig(
+style = logging.basicConfig(
     level=logging.DEBUG,
     format='[%(asctime)s] %(message)s'
 )
