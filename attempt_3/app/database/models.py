@@ -74,7 +74,7 @@ class User(Base):
     status: Mapped[bool] = mapped_column()
 
 
-async def async_main():
+async def async_main() -> None:
     """Конект с базой данных
 
     :rtype: None

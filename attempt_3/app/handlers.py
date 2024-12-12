@@ -8,15 +8,9 @@ import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 ### Импорты из файлов
-<<<<<<< HEAD
 import database.requests as rq
 import keyboards as kb
 import sup_func as sf
-=======
-import app.database.requests as rq
-import app.keyboards as kb
-import app.sup_func as sf
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 '''from app.middlewares import HandlerMiddleware'''
 
 
@@ -30,10 +24,7 @@ class Absent(StatesGroup):
     name_subject = State()
     username = State()
     gap_number = State()
-<<<<<<< HEAD
     selection = State()
-=======
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 
 
 class Reg(StatesGroup):
@@ -284,17 +275,10 @@ async def pick_subject2(message: Message, state: FSMContext):
                              reply_markup=kb.add_subjects)
     else:
         await state.update_data(name_subject=message.text)
-<<<<<<< HEAD
         await state.set_state(Absent.selection)
-        
 
-@router.message(Absent.selection)
-=======
-        await state.set_state(Absent.gap_number)
-        
 
 @router.message(Absent.gap_number)
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 async def way_to_set_gap_number(message: Message):
     await message.answer('Выбери способ отметить пропуск предмета студентом:')
 
@@ -320,23 +304,19 @@ async def mark_absent(message: Message, state: FSMContext):
         await state.set_state(Absent.username)
 
 
-<<<<<<< HEAD
 @router.message(Absent.gap_number)
 @router.message(F.text == 'Вписать количество пропущенных занятий вручную')
 async def set_gap_number(message: Message, state: FSMContext):
-    await message.answer('Выбери студента, отсутствие которого хочешь отметить.',
-=======
+    await message.answer('Выбери студента, отсутствие которого хочешь отметить.')
 @router.message(F.text == 'Вписать количество пропущенных занятий вручную')
 async def set_gap_number(message: Message, state: FSMContext):
     await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
                              reply_markup=await kb.students(message.from_user.id))
     if message.text == 'Всё.':
         await state.clear()
         await message.answer('Что надо?',
                              reply_markup=await kb.main(message.from_user.id))
     else:
-<<<<<<< HEAD
         group = await rq.get_group(message.from_user.id)
         if not await rq.check_student(message.text, *group):
             await message.answer('Кажется, такого студента нет((')
@@ -355,13 +335,6 @@ async def set_gap_number(message: Message, state: FSMContext):
         except ValueError:
             await message.answer('Введи число')
             await state.set_state(Absent.gap_number)
-=======
-        await state.update_data(username=message.text)
-        await message.answer('Введи количество пропуском студентом вручную')
-        try:
-            if sf.check_value(message.text):
-                
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 
 
 @router.message(Subjects.subject)

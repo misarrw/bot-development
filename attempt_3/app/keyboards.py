@@ -2,7 +2,7 @@
 from aiogram.types import (KeyboardButton, ReplyKeyboardMarkup, 
                            InlineKeyboardMarkup, InlineKeyboardButton)
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from app.database.requests import check_status, get_subjects, get_users
+from database.requests import check_status, get_subjects, get_users
 
 
 ### Стартовая клавиатура

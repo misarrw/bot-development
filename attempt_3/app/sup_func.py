@@ -20,7 +20,3 @@ def check_value(gap):
     if int_gap < 0:
         return False
     return True
-<<<<<<< HEAD
-=======
-
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b

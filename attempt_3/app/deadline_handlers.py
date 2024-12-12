@@ -68,14 +68,10 @@ async def dl_d(message: Message, state: FSMContext, apscheduler: AsyncIOSchedule
             day_time = day_list[1].split(':')
             data_deadline = await state.get_data()
             group = await rq.get_group(message.from_user.id)
-<<<<<<< HEAD
             await rq.set_deadline(name_deadline=data_deadline['name_deadline'], group=int(group),
-=======
-            await rq.set_deadline(name_deadline=data_deadline['name_deadline'], group=group,
->>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
-            day=day_data[0],  month=day_data[1],
-            year=day_data[2], hour=day_time[0],
-            minute=day_time[1])
+                                    day=day_data[0],  month=day_data[1],
+                                    year=day_data[2], hour=day_time[0],
+                                    minute=day_time[1])
             await activate_deadlines(message, apscheduler,  day_data, day_time, bot, data_deadline['name_deadline'])
             await message.answer('Круто, дедлайн добавлен.')
             await message.answer('Что надо?',
