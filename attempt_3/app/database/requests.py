@@ -202,6 +202,7 @@ async def get_user_skips(tg_id: int) -> list:
         return sorted(skips_list)
 
 
+<<<<<<< HEAD
 async def set_absent(username: str, group: int, subject: str, number: int) -> None:
     """Заполнение в базе данных информацию о пропусках студентов
 
@@ -219,6 +220,13 @@ async def set_absent(username: str, group: int, subject: str, number: int) -> No
         if await session.scalar(select(Absent).where(Absent.subject == subject).where(Absent.username
                                                                                               == username)):
             str_absent = await session.scalars(select(Absent).where(Absent.subject == subject)
+=======
+async def set_absent(username: str, group: str, name_object: str, number: int) -> None:
+    async with async_session() as session:
+        if await session.scalar(select(Absent).where(Absent.subject == name_object).where(Absent.username
+                                                                                              == username)) and number == 1:
+            str_absent = await session.scalars(select(Absent).where(Absent.subject == name_object)
+>>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
                                                .where(Absent.username == username))
             if number == 1:
                 for i in str_absent:

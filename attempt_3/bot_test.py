@@ -10,9 +10,20 @@ import app.keyboards as kb
 class BotTest(unittest.TestCase):
 
     def test_convert_into_group_number_negative(self):
+<<<<<<< HEAD
         text = 'c'
         with pytest.raises(ValueError):
             self.assertRaises(sf.convert_into_group_number(text))
+=======
+        with pytest.raises(ValueError):
+            text = ''
+            self.assertRaises(sf.convert_into_group_number(text))
+
+    
+    def test_convert_into_group_number_positive(self):
+        text = '241'
+        self.assertTrue(sf.convert_into_group_number(text))
+>>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 
     def test_convert_into_group_number_positive(self):
         text = '241'
@@ -27,6 +38,7 @@ class BotTest(unittest.TestCase):
         with pytest.raises(ValueError):
             self.assertRaises(sf.check_data(day))
 
+<<<<<<< HEAD
     def test_check_value_positive(self):
         gap = 2
         self.assertTrue(sf.check_value(gap))
@@ -35,6 +47,16 @@ class BotTest(unittest.TestCase):
         gap = 'c'
         with pytest.raises(ValueError):
             self.assertRaises(sf.check_value(gap))
+=======
+    def test_check_data_positive(self):
+        day = '01.01.31 13:00'
+        with pytest.raises(ValueError):
+            self.assertRaises(sf.check_data(day))
+
+    
+    
+
+>>>>>>> 271ae8e6d775ad5452ddeb7da68782746e4cbf2b
 
 ### Положительные тесты
 
