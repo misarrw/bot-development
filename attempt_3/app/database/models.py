@@ -36,7 +36,7 @@ class Deadline(Base):
 
 class Subject(Base):
     """Класс создания таблицы предметов"""
-    __tablename__ = 'objects'
+    __tablename__ = 'subjects'
     id: Mapped[int] = mapped_column(primary_key=True)
     subject: Mapped[str] = mapped_column(String(120))
 
@@ -74,8 +74,15 @@ class User(Base):
     status: Mapped[bool] = mapped_column()
 
 
+class Students(Base):
+    __tablename__ = 'students'
+    id: Mapped[int] = mapped_column(primary_key=True)
+    username: Mapped[str] = mapped_column(String(40))
+    group: Mapped[int] = mapped_column()
+
+
 async def async_main() -> None:
-    """Конект с базой данных
+    """Коннект с базой данных
 
     :rtype: None
     """

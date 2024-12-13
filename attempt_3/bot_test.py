@@ -1,34 +1,45 @@
 import pytest
-from unittest.mock import AsyncMock
+import tracemalloc
+from unittest.mock import AsyncMock, patch
 import unittest
+from sqlalchemy.exc import DataError
 
 
 import app.sup_func as sf
 import app.handlers as h
 import app.keyboards as kb
+import app.database.requests as rq
+import app.advanced_handlers as ah
+from app.handlers import Reg
+from app.advanced_handlers import Subjects, Timetable
+
+tracemalloc.start()
 
 class BotTest(unittest.TestCase):
 
+    ### тест для проверки на возможность ковертирования
     def test_convert_into_group_number_negative(self):
         text = 'c'
         with pytest.raises(ValueError):
             self.assertRaises(sf.convert_into_group_number(text))
 
-    
     def test_convert_into_group_number_positive(self):
         text = '241'
         self.assertTrue(sf.convert_into_group_number(text))
 
 
-    def test_check_data_positive(self):
+    ### тест для проверки на формат записи
+    def test_check_date_positive(self):
         day = '01.01.2031 13:00'
-        self.assertTrue(sf.check_data(day))
+        self.assertTrue(sf.check_date(day))
 
-    def test_check_data_negative(self):
+    def test_check_date_negative(self):
         day = '01.01.31 13:00'
         with pytest.raises(ValueError):
-            self.assertRaises(sf.check_data(day))
+            self.assertRaises(sf.check_date(day))
 
+
+    ### тест для проверки на положительность
     def test_check_value_positive(self):
         gap = 2
         self.assertTrue(sf.check_value(gap))
@@ -39,155 +50,131 @@ class BotTest(unittest.TestCase):
             self.assertRaises(sf.check_value(gap))
 
 
+    def test_check_format_scheduler_positive(self):
+        timetable = '1.Аип 2.Алгем\nЗанятий нет\nЗанятий нет\nЗанятий нет\nЗанятий нет\nЗанятий нет'
+        self.assertTrue(sf.check_format_scheduler(timetable))
+
+    def test_check_format_scheduler_negative(self):
+        timetable = 'Аип 2.Алгем\nЗанятий нет\nЗанятий нет\nЗанятий нет\nЗанятий нет\nЗанятий нет'
+        with pytest.raises(ValueError):
+            self.assertRaises(sf.check_format_scheduler(timetable))
+
     
+### тест для проверки на длину строки в write_student_name
+@pytest.mark.asyncio
+async def test_write_student_name_negative():
+        message = AsyncMock()
+        message.text = 'fjfjff' * 30
+        group = 242
+        state = AsyncMock()
+        message.from_user.id = 542241668
+
+        await ah.write_student_name(message, state)
+
+        with pytest.raises(DataError):
+            await rq.set_group_list(message.text, group)
+            message.answer.called_with('Имя слишком длинное.\nМаксимальная длина вводимых данных: 40 символов')
+
+
+@pytest.mark.asyncio
+async def test_write_student_name_positive():
+    message = AsyncMock()
+    message.text = 'Закончить'
+    state = AsyncMock()
+    message.from_user.id = 542241668
+
+    
+    await ah.write_student_name(message, state)
+
+    await message.answer.called_with('Что надо?',
+                             reply_markup=kb.main)
+
+
+import pytest
+from unittest.mock import AsyncMock, patch
+from sqlalchemy.exc import DataError
+
+@pytest.mark.asyncio
+async def test_reg_name_negative():
+    message = AsyncMock()
+    message.text = 'fjfjff' * 30
+    state = AsyncMock()
+    message.from_user.id = 542241668
+
+    with patch("app.database.requests.set_user", new_callable=AsyncMock) as mock_set_user, \
+         patch("app.keyboards.main", new_callable=AsyncMock) as mock_kb_main:
+
+        mock_set_user.side_effect = DataError("Error", None, None)
+        mock_kb_main.return_value = "MockedKeyboard"
+
+        await h.reg_name(message, state)
+
+        message.answer.assert_awaited_with(
+            'Имя слишком длинное.\nМаксимальная длина вводимых данных: 40 символов')
+        state.set_state.assert_awaited_once_with(Reg.name)
+        mock_set_user.assert_awaited_once()
+
     
 
 
-### Положительные тесты
-
-
-
 @pytest.mark.asyncio
-async def test_edit_data_positive():
+async def test_reg_name_positive():
     message = AsyncMock()
-    await h.edit_data(message)
-    message.answer.assert_called_with('Настройки для старост', 
-                         reply_markup = kb.master_settings)
+    message.text = "София Кузнецова"
+    state = AsyncMock()
+    message.from_user.id = 542241668
+
+    with patch("app.database.requests.set_user", new_callable=AsyncMock) as mock_set_user, \
+         patch("app.keyboards.main", new_callable=AsyncMock) as mock_kb_main:
+
+        mock_kb_main.return_value = "MockedKeyboard"
+
+        await h.reg_name(message, state)
+
+        message.answer.assert_awaited_with('Вроде зарегистрировались.\nЧто надо?', reply_markup= await kb.main(message.from_user.id))
+        mock_set_user.assert_awaited_once()
 
 
 @pytest.mark.asyncio
-async def test_groups_positive():
+async def test_add_subject_negative():
     message = AsyncMock()
-    await h.groups(message)
-    message.answer.assert_called_with('Choose your бибика', reply_markup=kb.groups)
+    state = AsyncMock()
+    message.text = 'абобаafqfqfqffewfrgeigjwvrvuevmwemvevmf4wffwefgqw4tgeqgqgqgg5gq5ghqh5hq'
+    state.set_state = AsyncMock()
+
+    '''    with pytest.raises(DataError):
+        await ah.add_subject(message, state)'''
+    with patch("app.database.requests.add_subject") as mock_add_subject:
+        mock_add_subject.side_effect = DataError("Error", None, None)
+
+        await ah.add_subject(message, state)
+
+        message.answer.assert_awaited_with('Предмет слишком длинный.\nДопустимая длина вводимых данных: 120 символов')  
+        state.set_state.assert_called_with(Subjects.subject)
 
 
 @pytest.mark.asyncio
-async def test_curricular_positive():
+async def test_add_subject_positive():
     message = AsyncMock()
-    await h.curricular(message)
-    message.answer.assert_called_with('Всё для тебя', reply_markup=kb.curricular)
+    state = AsyncMock()
+    message.text = 'абоба'
+    state.set_state = AsyncMock()
 
+    with patch("app.database.requests.add_subject") as mock_add_subject:
+        
 
-@pytest.mark.asyncio
-async def test_channels_positive():
-    message = AsyncMock()
-    await h.channels(message)
-    message.answer.assert_called_with('Полезное из каналов', reply_markup=kb.channels)
-
-
-@pytest.mark.asyncio
-async def test_contacts_cmd_positive():
-    message = AsyncMock()
-    await h.contacts_cmd(message)
-    message.answer.assert_called_with('Полезное из контактов', reply_markup=kb.contacts)
+        await ah.add_subject(message, state)
+        mock_add_subject.assert_awaited_once_with(message.text)
+        state.set_state.assert_awaited_with(Subjects.subject)
 
 
 
-@pytest.mark.asyncio
-async def test_contact1_positive():
-    callback = AsyncMock()
-    await h.contact1(callback)
-    callback.message.answer.assert_called_with('Иванов Федор Ильич\nТелефон: +7 (985) 471-86-23; 15194\n Почта: fivanov@hse.ru')
-
-
-@pytest.mark.asyncio
-async def test_contact2_positive():
-    callback = AsyncMock()
-    await h.contact2(callback)
-    callback.message.answer.assert_called_with('Павлова Татьяна Александровна\nТелефон: +7 (495) 772-95-90; 11093\n Почта: miem-office@hse.ru')
-
-
-@pytest.mark.asyncio
-async def test_contact3_positive():
-    callback = AsyncMock()
-    await h.contact3(callback)
-    callback.message.answer.assert_called_with('Тестова Екатерина Алексеевна\nТелефон: +7 (495) 772-95-90; 15179\n Почта: miem-office@hse.ru')
-
-
-@pytest.mark.asyncio
-async def test_contact4_positive():
-    callback = AsyncMock()
-    await h.contact4(callback)
-    callback.message.answer.assert_called_with('справочная\nТелефон: +7 (495) 771-32-32')
+    
 
 
 
-### Отрицательные тесты
 
 
-@pytest.mark.asyncio
-async def test_edit_data_negative():
-    message = AsyncMock()
-    await h.edit_data(message)
-    with pytest.raises(AssertionError):
-        message.answer.assert_called_with('Настройки для старост.', 
-                         reply_markup = kb.master_settings)
-
-
-@pytest.mark.asyncio
-async def test_groups_negative():
-    message = AsyncMock()
-    await h.groups(message)
-    with pytest.raises(AssertionError):
-        message.answer.assert_called_with('Choose your бибика.', reply_markup=kb.groups)
-
-
-@pytest.mark.asyncio
-async def test_curricular_negative():
-    message = AsyncMock()
-    await h.curricular(message)
-    with pytest.raises(AssertionError):
-        message.answer.assert_called_with('Всё для тебя.', reply_markup=kb.curricular)
-
-
-@pytest.mark.asyncio
-async def test_channels_negative():
-    message = AsyncMock()
-    await h.channels(message)
-    with pytest.raises(AssertionError):
-        message.answer.assert_called_with('Полезное из каналов.', reply_markup=kb.channels)
-
-
-@pytest.mark.asyncio
-async def test_contacts_cmd_negative():
-    message = AsyncMock()
-    await h.contacts_cmd(message)
-    with pytest.raises(AssertionError):
-        message.answer.assert_called_with('Полезное из контактов.', reply_markup=kb.contacts)
-
-
-
-@pytest.mark.asyncio
-async def test_contact1_negative():
-    callback = AsyncMock()
-    await h.contact1(callback)
-    with pytest.raises(AssertionError):
-        callback.message.answer.assert_called_with('Иванов Федор Ильич\nТелефон: +7 (985) 471-86-23; 15194\n Почта: fivanov@hse.ru.')
-
-
-@pytest.mark.asyncio
-async def test_contact2_negative():
-    callback = AsyncMock()
-    await h.contact2(callback)
-    with pytest.raises(AssertionError):
-        callback.message.answer.assert_called_with('Павлова Татьяна Александровна\nТелефон: +7 (495) 772-95-90; 11093\n Почта: miem-office@hse.ru.')
-
-
-@pytest.mark.asyncio
-async def test_contact3_negative():
-    callback = AsyncMock()
-    await h.contact3(callback)
-    with pytest.raises(AssertionError):
-        callback.message.answer.assert_called_with('Тестова Екатерина Алексеевна\nТелефон: +7 (495) 772-95-90; 15179\n Почта: miem-office@hse.ru.')
-
-
-@pytest.mark.asyncio
-async def test_contact4_negative():
-    callback = AsyncMock()
-    await h.contact4(callback)
-    with pytest.raises(AssertionError):
-        callback.message.answer.assert_called_with('справочная\nТелефон: +7 (495) 771-32-32.')
     
 
 

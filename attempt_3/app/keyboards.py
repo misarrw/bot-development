@@ -2,7 +2,7 @@
 from aiogram.types import (KeyboardButton, ReplyKeyboardMarkup, 
                            InlineKeyboardMarkup, InlineKeyboardButton)
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
-from database.requests import check_status, get_subjects, get_users
+from app.database.requests import check_status, get_subjects, get_users
 
 
 ### Стартовая клавиатура
@@ -12,20 +12,31 @@ async def main(tg_id) -> ReplyKeyboardMarkup:
     keyboard.add(KeyboardButton(text='Внеучебное'))
     if await check_status(tg_id):
         keyboard.add(KeyboardButton(text='Редактирование данных'))
-    return keyboard.adjust(1).as_markup()
+        keyboard.add(KeyboardButton(text = 'Посмотреть пропуски студентов'))
+    return keyboard.adjust(1).as_markup(resize_keyboard=True, 
+                                        input_field_placeholder='можешь ' +
+                                        'выбрать, что тебе нужно')
+
+'''main = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text = 'Учебное')], 
+    [KeyboardButton(text = 'Внеучебное')],
+    [KeyboardButton(text = 'Редактирование данных')]
+], resize_keyboard=True, input_field_placeholder='Выбери, что тебе нужно')'''
 
 
 async def students(tg_id) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardBuilder()
     all_name = await get_users(tg_id)
-    keyboard.add(KeyboardButton(text='ВСЁ!'))
+    keyboard.add(KeyboardButton(text='Стоп'))
     names_list = []
     for name in all_name:
-        names_list.append(name.name_user)
+        names_list.append(name.username)
     sorted_name_list = sorted(names_list)
     for name in sorted_name_list:
         keyboard.add(KeyboardButton(text=name))
-    return keyboard.adjust(3).as_markup()
+    return keyboard.adjust(3).as_markup(resize_keyboard = True,
+                            input_field_placeholder='Нажми, если нужно' + 
+                            'остановить процесс')
 
 
 async def subjects() -> ReplyKeyboardMarkup:
@@ -33,12 +44,19 @@ async def subjects() -> ReplyKeyboardMarkup:
     all_subjects = await get_subjects()
     subjects_list = []
     for subject in all_subjects:
-        subjects_list.append(subject.name_object)
+        subjects_list.append(subject.subject)
     sorted_subject_list = sorted(subjects_list)
     for subject in sorted_subject_list:
         keyboard.add(KeyboardButton(text=subject))
     keyboard.add(KeyboardButton(text='Добавить предмет'))
-    return keyboard.adjust(2).as_markup()
+    keyboard.add(KeyboardButton(text='Назад'))
+    return keyboard.adjust(2).as_markup(resize_keyboard=True)
+
+
+selection = ReplyKeyboardMarkup(keyboard=[
+    [KeyboardButton(text = 'Автоматически отметить 1 пропуск')],
+    [KeyboardButton(text = 'Вписать количество пропущенных занятий вручную')]
+], resize_keyboard=True)
 
 
 ### Учебное
@@ -52,8 +70,13 @@ curricular = ReplyKeyboardMarkup(keyboard = ([
                     input_field_placeholder = 'кто любит учиться вообще???')
 
 add_subjects = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='Всё!')]
+    [KeyboardButton(text='Стоп')]
 ], resize_keyboard=True)
+
+
+add_students = ReplyKeyboardMarkup(keyboard = ([
+    [KeyboardButton(text = 'Закончить')]]), resize_keyboard=True)
+
 
 ### Внеучебное
 extracurricular = ReplyKeyboardMarkup(keyboard=([
@@ -81,7 +104,7 @@ reg_groups = ReplyKeyboardMarkup(keyboard=[
 
 ### Назад (пропуск действия)
 skip = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text='скип')]
+    [KeyboardButton(text='Скип')]
 ], resize_keyboard=True)
 
 ### Каналы
@@ -110,8 +133,8 @@ channels = InlineKeyboardMarkup(inline_keyboard=[
 
 ### Да/нет-ка (вроде бесполезно)
 choice = InlineKeyboardMarkup(inline_keyboard=[
-    [InlineKeyboardButton(text='yessss', callback_data='yes')],
-    [InlineKeyboardButton(text='nnnoooo', callback_data='no')]
+    [InlineKeyboardButton(text='yes', callback_data='yes')],
+    [InlineKeyboardButton(text='nо', callback_data='no')]
 ])
 
 ### Контакты
@@ -130,6 +153,29 @@ contacts = InlineKeyboardMarkup(inline_keyboard=[
                           callback_data='прием.комиссия')]
 ])
 
+
+### Выбор группы
+groups = InlineKeyboardMarkup(inline_keyboard=
+                   [[InlineKeyboardButton(text='241', 
+                                          callback_data='241')],
+                   [InlineKeyboardButton(text='242', 
+                                         callback_data='242')],
+                   [InlineKeyboardButton(text='243', 
+                                         callback_data='243')],
+                   [InlineKeyboardButton(text='244', 
+                                         callback_data='244')],
+                   [InlineKeyboardButton(text='245', 
+                                         callback_data='245')]
+                   ])
+
+
+
+'''### Инлайн клавиатура с ссылками на телеграмы создателей
+parents = InlineKeyboardMarkup(inline_keyboard = [
+    [InlineKeyboardButton(text = 'Мама бота', url = 'https://t.me/misarrw')], 
+    [InlineKeyboardButton(text = 'Папа бота', url = 'https://t.me/jabohka')]
+])'''
+
 ### Дедлайны
 '''deadlines = ReplyKeyboardMarkup(keyboard=(
     [KeyboardButton(text = 'Активировать напоминания о дедлайнах')], 
@@ -140,23 +186,3 @@ deadlines1 = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text = 'Активация автонапоминаний о дедлайнах')], 
     [KeyboardButton(text = 'Назад')]
 ], resize_keyboard=True)'''
-
-### Выбор группы
-groups = InlineKeyboardMarkup(inline_keyboard=
-                   [[InlineKeyboardButton(text='б241иб', 
-                                          callback_data='241')],
-                   [InlineKeyboardButton(text='б242иб', 
-                                         callback_data='242')],
-                   [InlineKeyboardButton(text='б243иб', 
-                                         callback_data='243')],
-                   [InlineKeyboardButton(text='б244иб', 
-                                         callback_data='244')],
-                   [InlineKeyboardButton(text='б245иб', 
-                                         callback_data='245')]
-                   ])
-
-### Инлайн клавиатура с ссылками на телеграмы создателей
-parents = InlineKeyboardMarkup(inline_keyboard = [
-    [InlineKeyboardButton(text = 'Мама бота', url = 'https://t.me/misarrw')], 
-    [InlineKeyboardButton(text = 'Папа бота', url = 'https://t.me/jabohka')]
-])

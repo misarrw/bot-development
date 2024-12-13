@@ -41,7 +41,7 @@ async def main():
     dp.include_router(deadline_router)
 
 
-### инициализация скедулера
+    ### инициализация скедулера
     scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
     scheduler.start()
 

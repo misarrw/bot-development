@@ -6,11 +6,14 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from aiogram.exceptions import TelegramBadRequest
+from sqlalchemy.exc import DataError
+from pydantic_core._pydantic_core import ValidationError
 
 ### Импорты из файлов
-import database.requests as rq
-import keyboards as kb
-import sup_func as sf
+import app.database.requests as rq
+import app.keyboards as kb
+import app.sup_func as sf
 '''from app.middlewares import HandlerMiddleware'''
 
 
@@ -19,13 +22,6 @@ logger = logging.getLogger(__name__)
 
 
 ### Классы состояния
-class Absent(StatesGroup):
-    back_home = State()
-    name_subject = State()
-    username = State()
-    gap_number = State()
-    selection = State()
-
 
 class Reg(StatesGroup):
     group = State()
@@ -37,10 +33,6 @@ class Reg(StatesGroup):
 class Scheduler(StatesGroup):
     pass
 
-
-class Subjects(StatesGroup):
-    subject = State()
-    subject_skip = State()
 
 
 ### Подключение роутеров
@@ -61,12 +53,12 @@ tab = ' '*8
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
     logger.debug('ЭТАП РЕГИСТРАЦИИ: ВЫБОР ГРУППЫ')
-    await message.answer('Кчау... Я твоя бибика. Чем смогу, помогу')
+    await message.answer('Меня зовут БИБика, и я твой учебный помощник. Ты можешь найти во мне много полезного')
     if not await rq.get_user_id(message.from_user.id):
         await message.answer('Но мы с тобой не знакомы пока,\nтак что ' + 
                              'расскажи мне, кто ты')
         await state.set_state(Reg.group)
-        await message.answer('Выбери свою бибику (группу)',
+        await message.answer('Выбери свою группу',
                          reply_markup=kb.reg_groups)
     else:
         await message.answer('Что надо?', reply_markup=await kb.main(message.from_user.id))
@@ -96,7 +88,7 @@ async def check_password(message: Message, state: FSMContext):
     logger.debug('')
     global itr_password
     intermediate_data = await state.get_data()
-    if message.text == 'скип':
+    if message.text == 'Скип':
         await state.update_data(password=message.text)
         await state.set_state(Reg.status)
         await message.answer('Давай знакомиться. Введи свои имя и фамилию')
@@ -105,9 +97,8 @@ async def check_password(message: Message, state: FSMContext):
         check = await rq.check_password(intermediate_data['group'], message.text)
         if check:
             await state.update_data(password=message.text)
-            await state.set_state(Reg.status)
             await message.answer('Верю')
-            await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+            await reg_st(message, state)
             logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
         elif not check and itr_password < 3:
             itr_password += 1
@@ -131,14 +122,29 @@ async def reg_st(message: Message, state: FSMContext):
     else:
         await state.update_data(status=True)
     await state.set_state(Reg.name)
-    await state.update_data(name = message.text)
-    data_reg = await state.get_data()
-    await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'],
-                      data_reg['status'])
-    await state.clear()
-    logger.debug('РЕГИСТРАЦИЯ ЗАВЕРШЕНА')
-    await message.answer('Вроде зарегистрировались.\nЧто надо?',
-                         reply_markup=await kb.main(message.from_user.id))
+    await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+    
+
+@router.message(Reg.name)
+async def reg_name(message: Message, state: FSMContext):
+    try:
+        if not sf.check_student_name(message.text):
+            await message.answer('В имени не может быть числа')
+            await state.set_state(Reg.name)
+        else:
+            await state.update_data(name = message.text)
+            data_reg = await state.get_data()
+            await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'],
+                            data_reg['status'])
+            await state.clear()
+            logger.debug('РЕГИСТРАЦИЯ ЗАВЕРШЕНА')
+            await message.answer('Вроде зарегистрировались.\nЧто надо?',
+                                reply_markup=await kb.main(message.from_user.id))
+    except DataError:
+        await message.answer('Имя слишком длинное.\nМаксимальная длина вводимых данных: 40 символов')
+        await state.set_state(Reg.name)
+
+    
 
 
 ### Учебное
@@ -153,36 +159,49 @@ async def get_schedule(message: Message):
     await message.answer('Держи расписание своей группы')
     schedule = await rq.get_schedule(message.from_user.id)
     for i in schedule:
-        await message.answer(f'Понедельник:\n{i.monday}\nВторник:\n' +
-                             f'{i.tuesday}\n' +
-                             f'Среда:\n{i.wednesday}\nЧетверг:\n' +
-                             f'{i.thursday}\n' +
-                             f'Пятница:\n{i.friday}\nСуббота:\n{i.saturday}\n')
+        await message.answer(f'Понедельник:\n{i.monday}\n\nВторник:\n' +
+                             f'{i.tuesday}\n\n' +
+                             f'Среда:\n{i.wednesday}\n\nЧетверг:\n' +
+                             f'{i.thursday}\n\n' +
+                             f'Пятница:\n{i.friday}\n\nСуббота:\n{i.saturday}\n')
 
-
-@router.message(F.text == 'Список группы')
-async def groups(message: Message):
-    await message.answer('Choose your бибика', reply_markup=kb.groups)
 
 
 @router.message(F.text == 'Посещение')
 async def user_pass(message: Message):
-    skips = await rq.get_user_skips(message.from_user.id)
-    await message.answer(*skips)
+    try:
+        await message.answer('Твои пропуски:')
+        skips = await rq.get_user_skips(message.from_user.id)
+        await message.answer(*skips)
+    except DataError:
+        await message.answer('Пропусков пока что не было')
 
 
 @router.message(F.text == 'Мои дедлайны')
 async def begin_deadlines(message: Message):
     global tab
-    deadlines = await rq.get_deadlines(message.from_user.id)
-    sorted_deadlines_list = []
-    b_message = ''
-    for deadline in deadlines:
-        sorted_deadlines_list.append(deadline)
-    for deadline in sorted_deadlines_list:
-        b_message += (f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' +
-                      f'{deadline.hour}:{deadline.minute}\n')
-    await message.answer(b_message)
+    try:
+        deadlines = await rq.get_deadlines(message.from_user.id)
+        sorted_deadlines_list = []
+        b_message = ''
+        for deadline in deadlines:
+            sorted_deadlines_list.append(deadline)
+        for deadline in sorted_deadlines_list:
+            b_message += (f'{deadline.name_deadline}\n' + f'{deadline.day}.{deadline.month}.{deadline.hour} ' +
+                        f'{deadline.hour}:{deadline.minute}\n\n')
+        await message.answer(b_message)
+    except TelegramBadRequest:
+        await message.answer('Активных дедлайнов нет! (happy happy haaappyyy)')
+
+
+@router.message(F.text == 'Список группы')
+async def group_list(message: Message):
+    await message.answer('Вот список твоей группы')
+    students = await rq.get_group_list(message.from_user.id)
+    group_students_list = ''
+    for student in students:
+        group_students_list += f'{student.username}\n'
+    await message.answer(group_students_list)
 
 
 ### Команда /help (она бесполезная)
@@ -251,117 +270,6 @@ async def edit_data(message: Message):
                          reply_markup=kb.master_settings)
 
 
-@router.message(F.text == 'Редактировать расписание')
-async def edit_scheduler(message: Message):
-    pass
-
-
-### пропуски
-@router.message(Absent.back_home)
-@router.message(F.text == 'Отметить пропуски')
-async def pick_subject(message: Message, state: FSMContext):
-    await message.answer('Выбери предмет, по которому хочешь отметить отсутствие студента.',
-                         reply_markup=await kb.subjects())
-    await state.set_state(Absent.name_subject)
-
-
-@router.message(Absent.name_subject)
-async def pick_subject2(message: Message, state: FSMContext):
-    if message.text == 'Добавить предмет':
-        await state.clear()
-        await state.set_state(Subjects.subject)
-        await message.answer('Напиши название предмета, по которому хочешь отметить отсутствие студента.\n '
-                             'Если хочешь добавить несколько, вводи в разных сообщениях.',
-                             reply_markup=kb.add_subjects)
-    else:
-        await state.update_data(name_subject=message.text)
-        await state.set_state(Absent.selection)
-
-
-@router.message(Absent.gap_number)
-async def way_to_set_gap_number(message: Message):
-    await message.answer('Выбери способ отметить пропуск предмета студентом:')
-
-
-@router.message(Absent.username)
-@router.message(F.text == 'Автоматически отметить 1 пропуск')
-async def mark_absent(message: Message, state: FSMContext):
-    await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
-                             reply_markup=await kb.students(message.from_user.id))
-    if message.text == 'Всё.':
-        await state.clear()
-        await message.answer('Что надо?',
-                             reply_markup=await kb.main(message.from_user.id))
-    else:
-        group = await rq.get_group(message.from_user.id)
-        if not await rq.check_student(message.text, *group):
-            await message.answer('Кажется, такого студента нет((')
-        else:
-            await state.update_data(username=message.text)
-            data_mark = await state.get_data()
-            await rq.set_absent(username=data_mark['username'], group=int(group[0]),
-                                subject=data_mark['name_subject'], number=1)
-        await state.set_state(Absent.username)
-
-
-@router.message(Absent.gap_number)
-@router.message(F.text == 'Вписать количество пропущенных занятий вручную')
-async def set_gap_number(message: Message, state: FSMContext):
-    await message.answer('Выбери студента, отсутствие которого хочешь отметить.')
-@router.message(F.text == 'Вписать количество пропущенных занятий вручную')
-async def set_gap_number(message: Message, state: FSMContext):
-    await message.answer('Выбери студентов, отсутствие которых хочешь отметить.',
-                             reply_markup=await kb.students(message.from_user.id))
-    if message.text == 'Всё.':
-        await state.clear()
-        await message.answer('Что надо?',
-                             reply_markup=await kb.main(message.from_user.id))
-    else:
-        group = await rq.get_group(message.from_user.id)
-        if not await rq.check_student(message.text, *group):
-            await message.answer('Кажется, такого студента нет((')
-        else:
-            await state.update_data(username=message.text)
-        await message.answer('Введи количество пропуском студентом вручную')
-        try:
-            if sf.check_value(message.text):
-                data_mark = await state.get_data()
-                await rq.set_absent(username=data_mark['username'], group=int(group[0]),
-                                    subject=data_mark['name_subject'], number=int(message.text))
-
-            else:
-                await message.answer('Число не может быть меньше 0')
-                await state.set_state(Absent.gap_number)
-        except ValueError:
-            await message.answer('Введи число')
-            await state.set_state(Absent.gap_number)
-
-
-@router.message(Subjects.subject)
-async def add_subject(message: Message, state: FSMContext):
-    if message.text == 'Всё!':
-        await message.answer('Выбери предмет, по которому хочешь отметить отсустствие студента.',
-                             reply_markup=await kb.subjects())
-        await state.clear()
-        await state.set_state(Absent.back_home)
-    elif not await rq.add_subject(message.text):
-        await message.answer('Такой предмет уже записан.')
-        await state.set_state(Subjects.subject)
-
-
-@router.message(F.text == 'Пропуски')
-async def pick_subject_skip(message: Message, state: FSMContext):
-    await message.answer('Выбери предмет',
-                         reply_markup=await kb.subjects())
-    await state.set_state(Subjects.subject_skip)
-
-
-@router.message(Subjects.subject_skip)
-async def print_table_skips(message: Message):
-    absents_list = await rq.get_absents(message.from_user.id)
-    ending_str = f'Пропуски предмета {message.text}\n' + ''.join(absents_list)
-    await message.answer(ending_str)
-
 
 
 '''@router.message(F.text == 'Активация автонапоминаний о дедлайнах')
@@ -375,7 +283,7 @@ async def deadlines_activation(message: Message):
 
 
 
-### Дедлайны
+'''### Дедлайны
 @router.callback_query(F.text == 'Активировать напоминания о дедлайнах')
 async def activate_deadlines_1(callback: CallbackQuery):
     await callback.message.answer('Класс!')
@@ -383,7 +291,7 @@ async def activate_deadlines_1(callback: CallbackQuery):
 
 @router.callback_query(F.text == 'Деактивировать напоминания о дедлайнах')
 async def deactivate_deadlines(callback: CallbackQuery):
-    await callback.message.answer('Ну ладно')
+    await callback.message.answer('Ну ладно')'''
 
 
 

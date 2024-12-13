@@ -8,9 +8,9 @@ from aiogram.fsm.state import State, StatesGroup
 
 
 ### Импорты из файлов
-import database.requests as rq
-import keyboards as kb
-from sup_func import check_data
+import app.database.requests as rq
+import app.keyboards as kb
+from app.sup_func import check_date
 
 
 class Deadline(StatesGroup):
@@ -23,18 +23,6 @@ class Deadline(StatesGroup):
 
 deadline_router = Router()
 """Роутер для дедлайнов"""
-
-
-@deadline_router.message(F.text == 'Назначить/редактировать дедлайн')
-async def add_deadlines(message: Message, state: FSMContext) -> None:
-    """Обновление состояния
-
-    :param message: Управление сообщениями
-    :param state: Управление состояниями
-    :return: None
-    """
-    await state.set_state(Deadline.name_deadline)
-    await message.answer('Напиши название дедлайна, который хочешь создать.')
 
 
 @deadline_router.message(Deadline.name_deadline)
@@ -62,7 +50,7 @@ async def dl_d(message: Message, state: FSMContext, apscheduler: AsyncIOSchedule
     """
     day = message.text
     try:
-        if check_data(day):
+        if check_date(day):
             day_list = day.split(' ')
             day_data = day_list[0].split('.')
             day_time = day_list[1].split(':')
