@@ -5,16 +5,13 @@ from aiogram.filters import CommandStart, Command
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 import logging
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from aiogram.exceptions import TelegramBadRequest
 from sqlalchemy.exc import DataError
-from pydantic_core._pydantic_core import ValidationError
 
 ### Импорты из файлов
 import app.database.requests as rq
 import app.keyboards as kb
 import app.sup_func as sf
-'''from app.middlewares import HandlerMiddleware'''
 
 
 ### Инициализация логера модуля
@@ -22,36 +19,33 @@ logger = logging.getLogger(__name__)
 
 
 ### Классы состояния
-
 class Reg(StatesGroup):
+    """Класс состояния"""
     group = State()
     status = State()
     password = State()
     name = State()
 
 
-class Scheduler(StatesGroup):
-    pass
-
-
-
 ### Подключение роутеров
 router = Router()
-scheduler = AsyncIOScheduler(timezone = 'Europe/Moscow')
-
-
-### Подключение Middleware
-'''router.message.outer_middleware(HandlerMiddleware())'''
+"""Основной роутер"""
 
 
 ### Ввод переменных
 itr_password = 0
-tab = ' '*8
+"""Попытки введения пароля"""
 
 
 ### стартовая команда
 @router.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, state: FSMContext) -> None:
+    """Команда старт, регистрация
+
+    :param message: Управления сообщениями
+    :param state: Управления состояниями
+    :return: None
+    """
     logger.debug('ЭТАП РЕГИСТРАЦИИ: ВЫБОР ГРУППЫ')
     await message.answer('Меня зовут БИБика, и я твой учебный помощник. Ты можешь найти во мне много полезного')
     if not await rq.get_user_id(message.from_user.id):
@@ -66,7 +60,13 @@ async def cmd_start(message: Message, state: FSMContext):
 
 ### регистрация
 @router.message(Reg.group)
-async def reg_gr(message: Message, state: FSMContext):
+async def reg_gr(message: Message, state: FSMContext) -> None:
+    """Добавление группы студента в состояние
+
+    :param message: Управления сообщениями
+    :param state: Управления состояниями
+    :return: None
+    """
     try:
         if sf.convert_into_group_number(message.text):
             await state.update_data(group=int(message.text))
@@ -82,16 +82,20 @@ async def reg_gr(message: Message, state: FSMContext):
         await state.set_state(Reg.group)
 
 
-
 @router.message(Reg.password)
-async def check_password(message: Message, state: FSMContext):
+async def check_password(message: Message, state: FSMContext) -> None:
+    """Регистрация статуса студента и проверка пароля
+
+       :param message: Управления сообщениями
+       :param state: Управления состояниями
+       :return: None
+    """
     logger.debug('')
     global itr_password
     intermediate_data = await state.get_data()
     if message.text == 'Скип':
         await state.update_data(password=message.text)
-        await state.set_state(Reg.status)
-        await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+        await reg_st(message, state)
         logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
     else:
         check = await rq.check_password(intermediate_data['group'], message.text)
@@ -106,15 +110,19 @@ async def check_password(message: Message, state: FSMContext):
             await state.set_state(Reg.password)
             await message.answer(f'Пароль не такой!. Еще {3 - itr_password} попытки/а')
         elif itr_password == 2:
-            await state.set_state(Reg.status)
             await message.answer('Не верю')
-            await message.answer('Давай знакомиться. Введи свои имя и фамилию')
+            await reg_st(message, state)
             logger.debug('ЭТАП РЕГИСТРАЦИИ: ВВОД ФИО')
 
 
-
 @router.message(Reg.status)
-async def reg_st(message: Message, state: FSMContext):
+async def reg_st(message: Message, state: FSMContext) -> None:
+    """Добавление статуса в состояние
+
+        :param message: Управления сообщениями
+        :param state: Управления состояниями
+        :return: None
+    """
     intermediate_data = await state.get_data()
     check = await rq.check_password(intermediate_data['group'], intermediate_data['password'])
     if not check:
@@ -123,39 +131,53 @@ async def reg_st(message: Message, state: FSMContext):
         await state.update_data(status=True)
     await state.set_state(Reg.name)
     await message.answer('Давай знакомиться. Введи свои имя и фамилию')
-    
+
 
 @router.message(Reg.name)
-async def reg_name(message: Message, state: FSMContext):
+async def reg_name(message: Message, state: FSMContext) -> None:
+    """Регистрация имени пользователя и добавление данных в базу данных
+
+        :param message: Управления сообщениями
+        :param state: Управления состояниями
+        :return: None
+    """
     try:
         if not sf.check_student_name(message.text):
             await message.answer('В имени не может быть числа')
             await state.set_state(Reg.name)
         else:
-            await state.update_data(name = message.text)
+            await state.update_data(name=message.text)
             data_reg = await state.get_data()
             await rq.set_user(data_reg['name'], message.from_user.id, data_reg['group'],
-                            data_reg['status'])
+                              data_reg['status'])
             await state.clear()
             logger.debug('РЕГИСТРАЦИЯ ЗАВЕРШЕНА')
             await message.answer('Вроде зарегистрировались.\nЧто надо?',
-                                reply_markup=await kb.main(message.from_user.id))
+                                 reply_markup=await kb.main(message.from_user.id))
     except DataError:
         await message.answer('Имя слишком длинное.\nМаксимальная длина вводимых данных: 40 символов')
         await state.set_state(Reg.name)
 
-    
-
 
 ### Учебное
 @router.message(F.text == 'Учебное')
-async def curricular(message: Message):
+async def curricular(message: Message) -> None:
+    """Вывод клавиатуры
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Всё для тебя', reply_markup=kb.curricular)
 
 
 ### Расписание
 @router.message(F.text == 'Расписание')
-async def get_schedule(message: Message):
+async def get_schedule(message: Message) -> None:
+    """Вывод расписание группы
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Держи расписание своей группы')
     schedule = await rq.get_schedule(message.from_user.id)
     for i in schedule:
@@ -166,20 +188,31 @@ async def get_schedule(message: Message):
                              f'Пятница:\n{i.friday}\n\nСуббота:\n{i.saturday}\n')
 
 
-
 @router.message(F.text == 'Посещение')
-async def user_pass(message: Message):
+async def user_pass(message: Message) -> None:
+    """Вывод пропусков
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     try:
         await message.answer('Твои пропуски:')
         skips = await rq.get_user_skips(message.from_user.id)
-        await message.answer(*skips)
+        my_skips = ''
+        for skip in skips:
+            my_skips += skip
+        await message.answer(my_skips)
     except DataError:
         await message.answer('Пропусков пока что не было')
 
 
 @router.message(F.text == 'Мои дедлайны')
-async def begin_deadlines(message: Message):
-    global tab
+async def begin_deadlines(message: Message) -> None:
+    """Вывод дедлайнов группы
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     try:
         deadlines = await rq.get_deadlines(message.from_user.id)
         sorted_deadlines_list = []
@@ -195,7 +228,12 @@ async def begin_deadlines(message: Message):
 
 
 @router.message(F.text == 'Список группы')
-async def group_list(message: Message):
+async def group_list(message: Message) -> None:
+    """Вывод списка группы
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Вот список твоей группы')
     students = await rq.get_group_list(message.from_user.id)
     group_students_list = ''
@@ -206,32 +244,58 @@ async def group_list(message: Message):
 
 ### Команда /help (она бесполезная)
 @router.message(Command('help'))
-async def cmd_help(message: Message):
+async def cmd_help(message: Message) -> None:
+    """Ну есть и есть
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('S O S please some-one-help-me(barca>real)')
 
 
 ### Назад
 @router.message(F.text == 'Назад')
-async def back_cmd(message: Message, state: FSMContext):
+async def back_cmd(message: Message, state: FSMContext) -> None:
+    """Вспомогательная кнопка назад
+
+    :param message: Управления сообщениями
+    :param state: Управление состояниями
+    :return: None
+    """
     await message.answer('Ну и пожалуйста', reply_markup=await kb.main(message.from_user.id))
     await state.clear()
 
 
 ### Внеучебное
 @router.message(F.text == 'Внеучебное')
-async def extracurricular(message: Message):
+async def extracurricular(message: Message) -> None:
+    """Вывод клавиатуры
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Все для тебя', reply_markup=kb.extracurricular)
 
 
 ### Телеграм-каналы
 @router.message(F.text == 'Инфофлуд (телеграм-каналы)')
-async def channels(message: Message):
+async def channels(message: Message) -> None:
+    """Вывод полезных тг-каналов
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Полезное из каналов', reply_markup=kb.channels)
 
 
 ### Контакты
 @router.message(F.text == 'Если кому-то пожаловаться надо (контакты)')
-async def contacts_cmd(message: Message):
+async def contacts_cmd(message: Message) -> None:
+    """Вывод клавиатуры с контактами
+
+    :param message: Управления сообщениями
+    :return: None
+    """
     await message.answer('Полезное из контактов', reply_markup=kb.contacts)
 
 
@@ -261,83 +325,3 @@ async def contact5(callback: CallbackQuery):
 @router.callback_query(F.data == 'Прием.комиссия')
 async def contact6(callback: CallbackQuery):
     await callback.message.answer('приемная комиссия\nТелефон: (495) 771-32-42; (495) 916-88-44')
-
-
-### Опции для старост
-@router.message(F.text == 'Редактирование данных')
-async def edit_data(message: Message):
-    await message.answer('Настройки для старост',
-                         reply_markup=kb.master_settings)
-
-
-
-
-'''@router.message(F.text == 'Активация автонапоминаний о дедлайнах')
-async def deadlines_activation(message: Message):
-    await message.answer('Подтверди выбор об активации напоминаний.\nПри нажатии кнопки "Активировать..." тебе будут приходить напоминания о дедлайнах в день дедлайна', reply_markup=kb.deadlines)'''
-
-
-
-'''        b_message += f'{deadline.name_deadline}\n'+f'{deadline.day_deadline}\n{deadline.time_deadline}\n\n'''
-
-
-
-
-'''### Дедлайны
-@router.callback_query(F.text == 'Активировать напоминания о дедлайнах')
-async def activate_deadlines_1(callback: CallbackQuery):
-    await callback.message.answer('Класс!')
-
-
-@router.callback_query(F.text == 'Деактивировать напоминания о дедлайнах')
-async def deactivate_deadlines(callback: CallbackQuery):
-    await callback.message.answer('Ну ладно')'''
-
-
-
-'''@router.callback_query(F.data == '241')'''
-'''async def group241(callback: CallbackQuery):'''
-'''    await callback.message.answer('б241иб')'''
-
-'''@router.callback_query(F.data == '242')'''
-'''async def group241(callback: CallbackQuery):'''
-'''    await callback.message.answer('б242иб')'''
-
-'''@router.callback_query(F.data == '243')'''
-'''async def group241(callback: CallbackQuery):'''
-'''    await callback.message.answer('б243иб')'''
-
-'''@router.callback_query(F.data == '244')'''
-'''async def group241(callback: CallbackQuery):'''
-'''    await callback.message.answer('б244иб')'''
-
-'''@router.callback_query(F.data == '245')'''
-'''async def group241(callback: CallbackQuery):'''
-'''    await callback.message.answer('б245иб')'''
-
-
-
-'''@router.message(Command('register'))'''
-'''async def register(message: Message, state: FSMContext):'''
-'''    await state.set_state(Register.name)'''
-'''    await message.answer('кто ты есть?')'''
-
-'''@router.message(Register.name)'''
-'''async def register_name(message: Message, state: FSMContext):'''
-'''    await state.update_data(name=message.text)'''
-'''    await state.set_state(Register.surname)'''
-'''    await message.answer('а по фамилии?')'''
-
-'''@router.message(Register.surname)'''
-'''async def register_surname(message: Message, state: FSMContext):'''
-'''    await state.update_data(surname=message.text)'''
-'''    data = await state.get_data()'''
-'''    await message.answer(f'перепроверь машину\nимя: {data["name"]}\nфамилия: {data["surname"]}')'''
-### команда вверху вынимает значения
-'''    await state.clear()'''
-### команда сверху чистит записанные данные, чтобы бот не засорялся
-
-
-# пример команды, чтобы запросить номер телефона
-'''get_number = ReplyKeyboardMarkup(keyboard=[[KeyboardButton(text='Отправить номер','''
-'''                                                           request_contact=True)]])''' 

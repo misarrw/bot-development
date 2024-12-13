@@ -84,7 +84,7 @@ class Students(Base):
 async def async_main() -> None:
     """Коннект с базой данных
 
-    :rtype: None
+    :return: None
     """
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

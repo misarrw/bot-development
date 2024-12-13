@@ -20,6 +20,7 @@ scheduler = AsyncIOScheduler()
 
 
 class DDMiddleware(BaseMiddleware):
+    """Класс мидлвэйр, отвечающий за дедлайны"""
     def __init__(self, scheduler: AsyncIOScheduler) -> None:
         self._scheduler = scheduler
 
@@ -39,23 +40,8 @@ class DDMiddleware(BaseMiddleware):
         return result
 
 
-### Middleware для advanced_router
-class HandlerMiddleware(BaseMiddleware):
-    async def __call__(self,
-                       handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-                       event: TelegramObject,
-                       data: Dict[str, Any]) -> Any:
-        logger.debug('Вошли в %s', __class__.__name__)
-
-        result = await handler(event, data)
-
-        logger.debug('Вышли из %s', __class__.__name__)
-
-        return result
-
-
-### Middleware для router
 class PermissionMiddleware(BaseMiddleware):
+    """Класс мидлвэйр, отвечающий за проверку разрешения использования некоторых функций"""
     async def __call__(self,
                        handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
                        event: TelegramObject,
@@ -75,20 +61,3 @@ class PermissionMiddleware(BaseMiddleware):
 
         return event.answer('Тебе недоступна эта функция.\n' + 
                             'Похоже, ты не староста')
-
-
-'''class MasterHandlerMiddleware(BaseMiddleware):
-    async def __call__(self,
-                       handler: Callable[[Message, Dict[str, Any]], Awaitable[Any]],
-                       event: TelegramObject,
-                       data: Dict[str, Any]) -> Any:
-        logger.debug('Вошли в %s', __class__.__name__)
-
-        user = data.get('event_from_user')
-        user_status = await rq.get_user_status(user.id)
-        if user_status == 1:
-            return await handler(event, data)
-        
-        logger.debug('Вышли из %s', __class__.__name__)
-        return event.answer('Тебе недоступна эта функция.\n' + 
-                            'Похоже, ты не староста :(')'''

@@ -14,7 +14,7 @@ from app.sup_func import check_date
 
 
 class Deadline(StatesGroup):
-    """Дочерний класс StateGroup"""
+    """Класс состояний"""
     name_deadline = State()
     day_deadline = State()
     time_deadline = State()

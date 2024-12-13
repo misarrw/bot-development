@@ -37,6 +37,10 @@ async def check_password(group: int, password: str) -> bool:
                                     where(Password.password == hash_password.hexdigest()))
 
 
+async def check_subject_in_absent(subject: str) -> bool:
+    async with async_session() as session:
+        return session.scalar(select(Absent).where(Absent.subject == subject))
+
 async def check_status(tg_id: int) -> bool:
     """Проверка статуса пользователя
 
@@ -65,21 +69,27 @@ async def check_student(username: str, group: int) -> bool:
     
 
 async def check_student_in_list(username: str) -> bool:
+    """Проверка на наличие студента в базе данных
+
+    :param username: Имя студента
+    :return: Наличие студента в базе данных
+    """
     async with async_session() as session:
         return await session.scalar(select(Students).where(Students.username == username))
 
 
-async def get_absents(tg_id: int) -> list:
+async def get_absents(tg_id: int, subject: str) -> list:
     """Получение списка с пропусками студентов определенного предмета
 
     :param tg_id: id пользователя
     :type tg_id: int
+    :param subject: Предмет
     :return: Список пропусков
     :rtype: list
     """
     async with async_session() as session:
         group = await get_group(tg_id)
-        all_absents = await session.scalars(select(Absent).where(Absent.group == group))
+        all_absents = await session.scalars(select(Absent).where(Absent.group == group).where(Absent.subject == subject))
         absents_list = []
         for absent in all_absents:
             absents_list.append(f'{absent.username}: {str(absent.cnt_gap)}\n')
@@ -114,15 +124,14 @@ async def get_deadlines(tg_id: int):
     
 
 async def get_group_list(tg_id: int):
+    """Полученье списка группы
+
+    :param tg_id: id пользователя
+    :return: Список группы
+    """
     group = await get_group(tg_id)
     async with async_session() as session:
         return await session.scalars(select(Students).where(Students.group == group))
-
-
-'''async def check_emptiness(group: int) -> bool:
-    async with async_session() as session:
-        check_result = session.scalar(select(Deadline).where(Deadline.group == group))
-        return check_result'''
 
 
 async def get_group(tg_id: int) -> str:
@@ -153,7 +162,6 @@ async def get_schedule(tg_id):
             select(Schedule).where(Schedule.group == group_schedule))
 
 
-
 async def get_subjects():
     """Получение списка предметов
 
@@ -162,7 +170,6 @@ async def get_subjects():
     """
     async with async_session() as session:
         return await session.scalars(select(Subject))
-
 
 
 async def get_users(tg_id: int):
@@ -197,7 +204,6 @@ async def set_timetable(group: int, monday: str, tuesday: str, wednesday: str, t
         await session.commit()
 
 
-
 async def get_username(tg_id: int) -> str:
     """Получение имени пользователя
 
@@ -210,7 +216,6 @@ async def get_username(tg_id: int) -> str:
         str_user = await session.scalars(select(User).where(User.tg_id == tg_id))
         user = [i.username for i in str_user]
         return user[0]
-
 
 
 async def get_user_id(tg_id: int) -> bool:
@@ -269,7 +274,7 @@ async def set_absent(username: str, group: int, subject: str, number: int) -> No
                     i.cnt_gap = number
                 await session.commit()
         else:
-            session.add(Absent(username=username, group=group, subject=subject, cnt_gap=1))
+            session.add(Absent(username=username, group=group, subject=subject, cnt_gap=number))
             await session.commit()
 
 

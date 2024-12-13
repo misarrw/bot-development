@@ -17,12 +17,6 @@ async def main(tg_id) -> ReplyKeyboardMarkup:
                                         input_field_placeholder='можешь ' +
                                         'выбрать, что тебе нужно')
 
-'''main = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text = 'Учебное')], 
-    [KeyboardButton(text = 'Внеучебное')],
-    [KeyboardButton(text = 'Редактирование данных')]
-], resize_keyboard=True, input_field_placeholder='Выбери, что тебе нужно')'''
-
 
 async def students(tg_id) -> ReplyKeyboardMarkup:
     keyboard = ReplyKeyboardBuilder()
@@ -73,10 +67,8 @@ add_subjects = ReplyKeyboardMarkup(keyboard=[
     [KeyboardButton(text='Стоп')]
 ], resize_keyboard=True)
 
-
 add_students = ReplyKeyboardMarkup(keyboard = ([
     [KeyboardButton(text = 'Закончить')]]), resize_keyboard=True)
-
 
 ### Внеучебное
 extracurricular = ReplyKeyboardMarkup(keyboard=([
@@ -153,7 +145,6 @@ contacts = InlineKeyboardMarkup(inline_keyboard=[
                           callback_data='прием.комиссия')]
 ])
 
-
 ### Выбор группы
 groups = InlineKeyboardMarkup(inline_keyboard=
                    [[InlineKeyboardButton(text='241', 
@@ -167,22 +158,3 @@ groups = InlineKeyboardMarkup(inline_keyboard=
                    [InlineKeyboardButton(text='245', 
                                          callback_data='245')]
                    ])
-
-
-
-'''### Инлайн клавиатура с ссылками на телеграмы создателей
-parents = InlineKeyboardMarkup(inline_keyboard = [
-    [InlineKeyboardButton(text = 'Мама бота', url = 'https://t.me/misarrw')], 
-    [InlineKeyboardButton(text = 'Папа бота', url = 'https://t.me/jabohka')]
-])'''
-
-### Дедлайны
-'''deadlines = ReplyKeyboardMarkup(keyboard=(
-    [KeyboardButton(text = 'Активировать напоминания о дедлайнах')], 
-    [KeyboardButton(text = 'Деактивировать напоминания о дедлайнах')],
-    [KeyboardButton(text = 'Назад')]'''
-'''))
-deadlines1 = ReplyKeyboardMarkup(keyboard=[
-    [KeyboardButton(text = 'Активация автонапоминаний о дедлайнах')], 
-    [KeyboardButton(text = 'Назад')]
-], resize_keyboard=True)'''

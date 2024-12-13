@@ -27,7 +27,12 @@ logger = logging.getLogger(__name__)
 
 
 ### Начало работы с ботом
-async def main():
+async def main() -> None:
+    """Основная функция, подключение к базе данных, подключение к боту,
+    инициализация диспетчера
+
+    :return: None
+    """
     ### подключение к бд
     await async_main()
 
