@@ -106,12 +106,16 @@ async def test_reg_name_negative():
     message.text = 'fjfjff' * 30
     state = AsyncMock()
     message.from_user.id = 542241668
+    
 
     with patch("app.database.requests.set_user", new_callable=AsyncMock) as mock_set_user, \
-         patch("app.keyboards.main", new_callable=AsyncMock) as mock_kb_main:
+         patch("app.keyboards.main", new_callable=AsyncMock) as mock_kb_main, \
+            patch('app.database.requests.get_group') as mock_get_group:
 
         mock_set_user.side_effect = DataError("Error", None, None)
         mock_kb_main.return_value = "MockedKeyboard"
+        mock_get_group.return_value = 242
+
 
         await h.reg_name(message, state)
 
